@@ -1,0 +1,1 @@
+docker build -t rccl-tester -f Dockerfile.rccl_tester --pull .

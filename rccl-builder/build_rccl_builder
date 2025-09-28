@@ -1,0 +1,1 @@
+docker build -t rccl-builder -f Dockerfile.rccl_builder --pull .
