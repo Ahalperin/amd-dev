@@ -11,6 +11,9 @@ utils/containers/rccl_builder/build_rccl_builder
 Run it from the directory that contains rccl and rccl_tests:
 
 ```bash
+# run container with root 
+docker run --rm -it --name rccl-builder --workdir /workspace -v $(pwd):/workspace -v /tmp/.X11-unix:/tmp/.X11-unix:rw -e DISPLAY=$DISPLAY -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) rccl-builder:latest
+# run container with user
 docker run --rm -it --name rccl-builder --workdir /workspace -v $(pwd):/workspace -v /tmp/.X11-unix:/tmp/.X11-unix:rw -e DISPLAY=$DISPLAY -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) rccl-builder:latest su user -c 'cd /workspace && exec /bin/bash'
 ```
 
