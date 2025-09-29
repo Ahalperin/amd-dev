@@ -2,3 +2,42 @@ amd/**/*
 amd/rccl
 amd/rccl-tests
 **/.ccache
+
+# Profiling results and temporary files
+tools/profiling_results/
+workspace/profiling_results/
+**/profiling_results/
+
+# ROCm profiling output files
+*.csv
+*.json
+*.db
+*.pftrace
+*.sqlite3
+*.txt
+results.*
+profile_*
+*_profile*
+*_trace*
+
+# ROCm profiler temporary files
+.rocp/
+rocprof_*
+rpl_data_*
+temp_*
+
+# System profiling outputs
+*_system_*
+*_sample_*
+*_counters_*
+
+# MPI rank-specific files
+*_rank_*
+
+# Perfetto trace files
+*.perfetto
+
+# Analysis temporary files
+__pycache__/
+*.pyc
+*.pyo

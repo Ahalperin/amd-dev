@@ -20,32 +20,23 @@ git clone --recurse-submodules -b "develop" "ttps://github.com/ROCm/rccl-tests"
 
 ### Create RCCL Builder Container
 
-Run it from the directory that contains rccl and rccl_tests:
-
-```bash
-# run container with root permissions
-docker run --rm -it \
-  --name rccl-builder \
-  --workdir /workspace \
-  -v $(pwd):/workspace \
-  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-  -e DISPLAY=$DISPLAY \
-  -e USER_ID=$(id -u) \
-  -e GROUP_ID=$(id -g) \
-  rccl-builder:latest
+Run it from amd-dev directory
+```shell
+cd ~/amd-dev
 ```
 
 ### when running from a container one can grant the container accessing the GPUs
---device /dev/kfd - Grants access to the Kernel Fusion Driver, which is the main compute interface for AMD GPUs
---device /dev/dri - Provides access to all GPU render nodes through the Direct Rendering Interface
---security-opt seccomp=unconfined - Enables memory mapping operations that may be required for GPU communication
+- --device /dev/kfd - Grants access to the Kernel Fusion Driver, which is the main compute interface for AMD GPUs
+- --device /dev/dri - Provides access to all GPU render nodes through the Direct Rendering Interface
+- ---security-opt seccomp=unconfined - Enables memory mapping operations that may be required for GPU communication
 
 ```bash
 # run container with root permissions and grant access to the GPU drivers
 docker run --rm -it \
   --name rccl-builder \
   --workdir /workspace \
-  -v $(pwd):/workspace \
+  -v $(pwd)/amd:/workspace \
+  -v $(pwd)/tools:/tools \
   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
   -e DISPLAY=$DISPLAY \
   -e USER_ID=$(id -u) \
