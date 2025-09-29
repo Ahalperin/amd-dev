@@ -1,6 +1,14 @@
-## base docker image
-ARG ROCM_IMAGE_NAME=rocm/dev-ubuntu-22.04
-ARG ROCM_IMAGE_TAG=latest
+## Enhanced RCCL Builder Docker Image with Advanced Profiling Support
+## This Dockerfile provides options for different ROCm versions and enhanced profiling
+
+## ROCm version selection - can be overridden at build time
+
+
+ARG ROCM_VERSION=7.0
+ARG ROCM_IMAGE_NAME=rocm/dev-ubuntu-24.04
+ARG ROCM_IMAGE_TAG=7.0-complete
+
+# docker pull rocm/dev-ubuntu-24.04:7.0-complete
 FROM "${ROCM_IMAGE_NAME}:${ROCM_IMAGE_TAG}"
 
 ## rccl repo
@@ -14,10 +22,16 @@ ARG RCCL_TESTS_BRANCH=develop
 ## AMD GPU Targets
 ARG GPU_TARGETS=gfx942
 
+## ROCm version for internal use
+ENV ROCM_VERSION=$ROCM_VERSION
+
 ## creating scratch space
-ENV WORKDIR /workspace
+ENV WORKDIR=/workspace
 RUN mkdir -p ${WORKDIR}
 WORKDIR ${WORKDIR}
+
+## Create tools directory for profiling scripts and documentation
+RUN mkdir -p /tools/scripts /tools/docs
 
 ## install dependencies
 RUN apt-get update \
@@ -58,10 +72,15 @@ RUN apt-get update \
     python3-dev \
     python3-tk \
     python3-yaml \
+    python3-pandas \
+    python3-matplotlib \
+    python3-seaborn \
     vim \
     less \
     ccache \
     htop \
+    strace \
+    gdb \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -73,6 +92,11 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.28.0/cmake-3.28.0
 
 ## Set ROCm path
 ENV ROCM_PATH=/opt/rocm
+
+## Enhanced profiling environment setup
+ENV LD_LIBRARY_PATH="/opt/rocm/lib:/opt/rocm/lib/rocprofiler:/opt/rocm/lib/rocprofiler-sdk"
+ENV ROCPROFILER_BUFFER_SIZE=16384
+ENV ROCPROFILER_MAX_BUFFERS=8
 
 ## Install UCX
 ENV UCX_INSTALL_PREFIX=/opt/ucx
@@ -105,15 +129,90 @@ ENV PATH="/usr/lib/ccache:$PATH"
 ENV CCACHE_DIR="/workspace/.ccache"
 RUN ln -sf /usr/bin/ccache /usr/lib/ccache/hipcc
 
-# Create a script for user setup (to be run at container start)
+## Enhanced profiling tools installation
+RUN pip3 install --no-cache-dir --break-system-packages \
+    pandas \
+    matplotlib \
+    seaborn \
+    numpy \
+    scipy \
+    plotly \
+    jupyter
+
+## Create profiling results directory with proper permissions
+RUN mkdir -p /workspace/profiling_results && chmod 777 /workspace/profiling_results
+
+## Create enhanced user setup script with profiling environment
 RUN echo '#!/bin/bash\n\
+# Enhanced setup with profiling environment\n\
+export ROCM_VERSION='"${ROCM_VERSION}"'\n\
+export LD_LIBRARY_PATH="/opt/rocm/lib:/opt/rocm/lib/rocprofiler:/opt/rocm/lib/rocprofiler-sdk:${LD_LIBRARY_PATH}"\n\
+export ROCPROFILER_BUFFER_SIZE=16384\n\
+export ROCPROFILER_MAX_BUFFERS=8\n\
+export PATH="/opt/ompi/bin:/opt/ucx/bin:${PATH}"\n\
+\n\
+# Display profiling capabilities\n\
+echo "=== RCCL Builder Container with Enhanced Profiling ==="\n\
+echo "ROCm Version: $(cat /opt/rocm/share/doc/rocm/VERSION 2>/dev/null || echo '"${ROCM_VERSION}"')"\n\
+echo "Available GPUs: $(rocm-smi --showid --csv 2>/dev/null | grep -c GPU || echo "Detection failed")"\n\
+echo "Profiling Tools: $(ls /opt/rocm/bin/*prof* 2>/dev/null | wc -l) available"\n\
+echo "Profiling Libraries: $(find /opt/rocm/lib -name "*rocprofiler*" -type f 2>/dev/null | wc -l) libraries"\n\
+echo "Tools Directory: /tools/scripts/ (profiling scripts)"\n\
+echo "Docs Directory: /tools/docs/ (documentation)"\n\
+echo "Results Directory: /workspace/profiling_results/"\n\
+echo "========================================================"\n\
+\n\
+# User management\n\
 if [ ! -z "$USER_ID" ] && [ ! -z "$GROUP_ID" ]; then\n\
     groupadd -f -g $GROUP_ID usergroup 2>/dev/null || true\n\
     useradd -u $USER_ID -g $GROUP_ID -s /bin/bash -d /workspace user 2>/dev/null || true\n\
     chown -R $USER_ID:$GROUP_ID /workspace 2>/dev/null || true\n\
+    chown -R $USER_ID:$GROUP_ID /tools 2>/dev/null || true\n\
 fi\n\
+\n\
+# Create convenience aliases\n\
+echo "alias ll=\"ls -la\"" >> /root/.bashrc\n\
+echo "alias rocm-info=\"rocm-smi --showid --showtemp --showuse\"" >> /root/.bashrc\n\
+echo "alias prof-quick=\"/tools/scripts/quick_profile_rccl.sh\"" >> /root/.bashrc\n\
+echo "alias prof-basic=\"/tools/scripts/profile_rccl_basic.sh\"" >> /root/.bashrc\n\
+echo "alias prof-advanced=\"/tools/scripts/profile_rccl_advanced.sh\"" >> /root/.bashrc\n\
+echo "alias prof-enhanced=\"/tools/scripts/profile_rccl_enhanced.sh\"" >> /root/.bashrc\n\
+echo "alias prof-viz=\"python3 /tools/scripts/create_rccl_visualization.py\"" >> /root/.bashrc\n\
+\n\
 exec "$@"' > /usr/local/bin/setup-user.sh && chmod +x /usr/local/bin/setup-user.sh
+
+## Set up environment for profiling
+ENV PYTHONPATH="/tools/scripts"
+
+## Create a health check script
+RUN echo '#!/bin/bash\n\
+echo "=== Container Health Check ==="\n\
+echo "ROCm Installation: $(test -d /opt/rocm && echo "OK" || echo "MISSING")"\n\
+echo "GPU Detection: $(rocm-smi --showid >/dev/null 2>&1 && echo "OK" || echo "FAILED")"\n\
+echo "Profiling Tools: $(test -x /opt/rocm/bin/rocprof && echo "OK" || echo "MISSING")"\n\
+echo "RCCL Tests: $(test -d /workspace/rccl-tests && echo "BUILT" || echo "NOT BUILT")"\n\
+echo "Tools Directory: $(test -d /tools/scripts && echo "OK" || echo "MISSING")"\n\
+echo "Results Directory: $(test -d /workspace/profiling_results && echo "OK" || echo "MISSING")"\n\
+echo "Python Packages: $(python3 -c \"import pandas, matplotlib\" 2>/dev/null && echo "OK" || echo "MISSING")"\n\
+echo "=============================="\n\
+' > /usr/local/bin/health-check.sh && chmod +x /usr/local/bin/health-check.sh
 
 WORKDIR /workspace
 ENTRYPOINT ["/usr/local/bin/setup-user.sh"]
 CMD ["/bin/bash"]
+
+## Build instructions:
+## 
+## For ROCm 6.4.4 (default):
+## docker build -f Dockerfile.rccl_builder_enhanced -t rccl-builder-enhanced:6.4.4 .
+##
+## For ROCm 7.0.0 (if available):
+## docker build --build-arg ROCM_VERSION=7.0.0 --build-arg ROCM_IMAGE_TAG=7.0.0 \
+##              -f Dockerfile.rccl_builder_enhanced -t rccl-builder-enhanced:7.0.0 .
+##
+## Run with host ROCm 7.0.0 libraries mounted:
+## docker run -it --device=/dev/kfd --device=/dev/dri \
+##            --security-opt seccomp=unconfined \
+##            -v /opt/rocm-7.0.0:/host-rocm-7.0.0:ro \
+##            -v $(pwd)/amd-dev/tools:/tools \
+##            rccl-builder-enhanced:latest

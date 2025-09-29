@@ -171,6 +171,8 @@ The scripts automatically set these for optimal profiling:
 ## 📚 Documentation
 
 - **[Complete Profiling Guide](tools/docs/rccl-profiling-guide.md)**: Detailed profiling instructions
+- **[Graphical Visualization Guide](tools/docs/rccl-visualization-guide.md)**: How to view results graphically
+- **[ROCm Profiler Libraries Guide](tools/docs/rocm-profiler-libraries-guide.md)**: Advanced profiling with shared libraries
 - **[Performance Counters](tools/docs/rocm-performance-counters.md)**: Counter reference and interpretation
 - **[RCCL Tests Guide](tools/docs/rccl-tests.md)**: RCCL tests usage and options
 

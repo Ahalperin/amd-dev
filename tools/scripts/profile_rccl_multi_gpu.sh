@@ -54,29 +54,29 @@ echo "=== Running Multi-GPU Profiling ==="
 # 1. Single process multi-GPU profiling
 echo "1. Single process multi-GPU profiling..."
 rocprof --hip-trace --hsa-trace \
-        --output-file "${OUTPUT_DIR}/${TEST_NAME}_single_proc_${NUM_GPUS}gpu_${TIMESTAMP}" \
-        "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g ${NUM_GPUS} ${@:3}
+        -o "${OUTPUT_DIR}/${TEST_NAME}_single_proc_${NUM_GPUS}gpu_${TIMESTAMP}.csv" \
+        "${TEST_EXEC}" -b 8 -e 128M -f 2 -g ${NUM_GPUS} ${@:3}
 
 # 2. Multi-process single GPU per process (recommended for performance)
 echo "2. Multi-process profiling (1 GPU per process)..."
 mpirun --allow-run-as-root -np ${NUM_GPUS} --bind-to numa \
-       sh -c "rocprof --hip-trace --output-file ${OUTPUT_DIR}/${TEST_NAME}_multi_proc_rank_\${OMPI_COMM_WORLD_RANK}_${TIMESTAMP} \
-              ${TEST_EXEC} --allow-run-as-root -b 8 -e 128M -f 2 -g 1 ${@:3}"
+       sh -c "rocprof --hip-trace -o ${OUTPUT_DIR}/${TEST_NAME}_multi_proc_rank_\${OMPI_COMM_WORLD_RANK}_${TIMESTAMP}.csv \
+              ${TEST_EXEC} -b 8 -e 128M -f 2 -g 1 ${@:3}"
 
 # 3. Advanced profiling with rocprofv3
 echo "3. Advanced multi-GPU profiling with rocprofv3..."
 rocprofv3 --plugin csv \
           --kernel-trace \
           --hip-trace \
-          --output-file "${OUTPUT_DIR}/${TEST_NAME}_advanced_${NUM_GPUS}gpu_${TIMESTAMP}.csv" \
-          -- "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g ${NUM_GPUS} ${@:3}
+          -o "${OUTPUT_DIR}/${TEST_NAME}_advanced_${NUM_GPUS}gpu_${TIMESTAMP}.csv" \
+          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g ${NUM_GPUS} ${@:3}
 
 # 4. Memory bandwidth focused profiling
 echo "4. Memory bandwidth profiling..."
 rocprof --hip-trace \
         -m TCC_HIT,TCC_MISS,TCP_TCC_READ_REQ_sum,TCP_TCC_WRITE_REQ_sum,TCC_EA_RDREQ,TCC_EA_WRREQ \
-        --output-file "${OUTPUT_DIR}/${TEST_NAME}_bandwidth_${NUM_GPUS}gpu_${TIMESTAMP}" \
-        "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g ${NUM_GPUS} ${@:3}
+        -o "${OUTPUT_DIR}/${TEST_NAME}_bandwidth_${NUM_GPUS}gpu_${TIMESTAMP}.csv" \
+        "${TEST_EXEC}" -b 8 -e 128M -f 2 -g ${NUM_GPUS} ${@:3}
 
 echo "=== Profiling Complete ==="
 echo "Results saved in: ${OUTPUT_DIR}"

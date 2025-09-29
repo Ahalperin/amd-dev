@@ -7,7 +7,7 @@ set -e
 
 # Default parameters
 TEST_NAME=${1:-all_reduce_perf}
-RCCL_TESTS_DIR="/workspace/rccl-tests"
+RCCL_TESTS_DIR="/workspace/rccl-tests/"
 OUTPUT_DIR="/workspace/profiling_results"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
@@ -45,38 +45,47 @@ echo "=== Running Advanced Profiling ==="
 
 # 1. Comprehensive profiling with Perfetto output (Chrome tracing)
 echo "1. Comprehensive profiling with Perfetto tracing..."
-rocprofv3 --plugin perfetto \
+rocprofv3 --output-format pftrace \
           --kernel-trace \
           --hip-trace \
           --hsa-trace \
-          --output-file "${OUTPUT_DIR}/${TEST_NAME}_perfetto_${TIMESTAMP}.pftrace" \
-          -- "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g 1 ${@:2}
+          -o "${OUTPUT_DIR}/${TEST_NAME}_perfetto_${TIMESTAMP}" \
+          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
 
-# 2. Detailed CSV output with performance counters
+# 2. Detailed CSV profiling...
 echo "2. Detailed CSV profiling..."
-rocprofv3 --plugin csv \
+rocprofv3 --output-format csv \
           --kernel-trace \
           --hip-trace \
-          --output-file "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}.csv" \
-          -- "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g 1 ${@:2}
+          -o "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}" \
+          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
 
-# 3. System-level profiling (if available)
-echo "3. System-level profiling..."
+# 3. JSON format for analysis tools
+echo "3. JSON profiling for analysis tools..."
+rocprofv3 --output-format json \
+          --kernel-trace \
+          --hip-trace \
+          --stats \
+          -o "${OUTPUT_DIR}/${TEST_NAME}_json_${TIMESTAMP}" \
+          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
+
+# 4. System-level profiling (if available)
+echo "4. System-level profiling..."
 if command -v rocprof-sys-run &> /dev/null; then
     rocprof-sys-run --trace \
                     --sample-freq=1000 \
                     --output="${OUTPUT_DIR}/${TEST_NAME}_system_${TIMESTAMP}" \
-                    -- "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g 1 ${@:2}
+                    -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
 else
     echo "rocprof-sys-run not available, skipping system profiling"
 fi
 
-# 4. Performance counter profiling with specific metrics
-echo "4. Performance counter profiling..."
+# 5. Performance counter profiling with specific metrics
+echo "5. Performance counter profiling..."
 rocprof --hip-trace \
         -m SQ_WAVES,SQ_INSTS_VALU,GRBM_GUI_ACTIVE,SQ_INSTS_VMEM_RD,SQ_INSTS_VMEM_WR \
-        --output-file "${OUTPUT_DIR}/${TEST_NAME}_counters_${TIMESTAMP}" \
-        "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g 1 ${@:2}
+        -o "${OUTPUT_DIR}/${TEST_NAME}_counters_${TIMESTAMP}.csv" \
+        "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
 
 echo "=== Profiling Complete ==="
 echo "Results saved in: ${OUTPUT_DIR}"
@@ -85,19 +94,30 @@ echo "Generated files:"
 ls -la "${OUTPUT_DIR}/"*"${TIMESTAMP}"*
 
 echo ""
-echo "=== Analysis Instructions ==="
-echo "1. Perfetto trace can be viewed at: https://ui.perfetto.dev/"
-echo "   Upload: ${OUTPUT_DIR}/${TEST_NAME}_perfetto_${TIMESTAMP}.pftrace"
+echo "=== Graphical Visualization Instructions ==="
 echo ""
-echo "2. CSV data can be analyzed with:"
-echo "   - Spreadsheet applications (Excel, LibreOffice Calc)"
-echo "   - Python pandas: pd.read_csv('${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}.csv')"
+echo "🎨 GRAPHICAL VIEWING OPTIONS:"
 echo ""
-echo "3. Quick kernel analysis:"
+echo "1. 🌐 Perfetto Trace Viewer (RECOMMENDED):"
+echo "   • Open: https://ui.perfetto.dev/"
+echo "   • Upload: ${OUTPUT_DIR}/${TEST_NAME}_perfetto_${TIMESTAMP}.pftrace"
+echo "   • Features: Timeline view, kernel details, API calls, memory operations"
+echo ""
+echo "2. 🔥 Chrome Tracing:"
+echo "   • Open Chrome browser"
+echo "   • Navigate to: chrome://tracing/"
+echo "   • Load file: ${OUTPUT_DIR}/${TEST_NAME}_json_${TIMESTAMP}.json"
+echo ""
+echo "3. 📊 CSV Analysis Tools:"
+echo "   • Spreadsheet: Excel, LibreOffice Calc, Google Sheets"
+echo "   • Python: pandas, matplotlib, seaborn"
+echo "   • File: ${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}.csv"
+echo ""
+echo "4. 🔧 Analysis Scripts:"
+echo "   • Basic analysis: python3 /tools/scripts/analyze_rccl_profile.py ${OUTPUT_DIR}/"
+echo ""
+echo "=== Quick Analysis ==="
 if [[ -f "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}.csv" ]]; then
     echo "   Total kernels executed:"
-    tail -n +2 "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}.csv" | wc -l
-    echo "   Top 5 longest kernels:"
-    head -1 "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}.csv"
-    tail -n +2 "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}.csv" | sort -t, -k7 -nr | head -5
+    tail -n +2 "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}.csv" | wc -l 2>/dev/null || echo "   CSV file not found"
 fi

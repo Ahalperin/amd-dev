@@ -1,6 +1,18 @@
 # ROCm Performance Counters Reference
 
-This document provides a comprehensive reference for performance counters available in ROCm profiling tools for RCCL profiling.
+This document provides a comprehensive reference for performance counters available in ROCm profiling tools for RCCL profiling inside the container environment.
+
+## Container Structure
+
+```
+/ (container root)
+├── workspace/
+│   ├── rccl/              # RCCL source and build
+│   └── rccl-tests/        # RCCL tests source and build
+└── tools/
+    ├── docs/              # Documentation
+    └── scripts/           # Profiling scripts
+```
 
 ## Key Performance Counter Categories
 
@@ -90,27 +102,32 @@ High-level GPU utilization metrics.
 
 ### Memory Bandwidth Analysis
 ```bash
-rocprof -m TCC_HIT,TCC_MISS,TCC_EA_RDREQ,TCC_EA_WRREQ,TCP_TCC_READ_REQ_sum,TCP_TCC_WRITE_REQ_sum
+rocprof -m TCC_HIT,TCC_MISS,TCC_EA_RDREQ,TCC_EA_WRREQ,TCP_TCC_READ_REQ_sum,TCP_TCC_WRITE_REQ_sum \
+        /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
 ```
 
 ### Compute Utilization
 ```bash
-rocprof -m SQ_WAVES,SQ_INSTS_VALU,GRBM_GUI_ACTIVE,SQ_BUSY_CYCLES,SQ_WAVE_CYCLES
+rocprof -m SQ_WAVES,SQ_INSTS_VALU,GRBM_GUI_ACTIVE,SQ_BUSY_CYCLES,SQ_WAVE_CYCLES \
+        /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
 ```
 
 ### Matrix Operations (for AI workloads)
 ```bash
-rocprof -m SQ_INSTS_VALU_MFMA_F16,SQ_INSTS_VALU_MFMA_BF16,SQ_INSTS_VALU_MFMA_F32,SQ_VALU_MFMA_BUSY_CYCLES
+rocprof -m SQ_INSTS_VALU_MFMA_F16,SQ_INSTS_VALU_MFMA_BF16,SQ_INSTS_VALU_MFMA_F32,SQ_VALU_MFMA_BUSY_CYCLES \
+        /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
 ```
 
 ### Memory Access Patterns
 ```bash
-rocprof -m TCP_TOTAL_READ,TCP_TOTAL_WRITE,TCP_TOTAL_ATOMIC_WITH_RET,TCC_READ,TCC_WRITE,TCC_ATOMIC
+rocprof -m TCP_TOTAL_READ,TCP_TOTAL_WRITE,TCP_TOTAL_ATOMIC_WITH_RET,TCC_READ,TCC_WRITE,TCC_ATOMIC \
+        /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
 ```
 
 ### Cache Efficiency
 ```bash
-rocprof -m TCC_HIT,TCC_MISS,TCP_TOTAL_CACHE_ACCESSES,SQC_ICACHE_HITS,SQC_ICACHE_MISSES
+rocprof -m TCC_HIT,TCC_MISS,TCP_TOTAL_CACHE_ACCESSES,SQC_ICACHE_HITS,SQC_ICACHE_MISSES \
+        /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
 ```
 
 ## Counter Interpretation Guidelines
@@ -145,22 +162,37 @@ VALU Utilization = SQ_INSTS_VALU / SQ_INSTS
 
 1. **Start with High-Level Metrics**:
    ```bash
-   rocprof -m GRBM_GUI_ACTIVE,TCC_HIT,TCC_MISS,SQ_WAVES
+   rocprof -m GRBM_GUI_ACTIVE,TCC_HIT,TCC_MISS,SQ_WAVES \
+           /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
    ```
 
 2. **Drill Down to Memory**:
    ```bash
-   rocprof -m TCC_EA_RDREQ,TCC_EA_WRREQ,TCP_TCC_READ_REQ_sum,TCP_TCC_WRITE_REQ_sum
+   rocprof -m TCC_EA_RDREQ,TCC_EA_WRREQ,TCP_TCC_READ_REQ_sum,TCP_TCC_WRITE_REQ_sum \
+           /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
    ```
 
 3. **Analyze Compute Patterns**:
    ```bash
-   rocprof -m SQ_INSTS_VALU,SQ_INSTS_VMEM_RD,SQ_INSTS_VMEM_WR,SQ_BUSY_CYCLES
+   rocprof -m SQ_INSTS_VALU,SQ_INSTS_VMEM_RD,SQ_INSTS_VMEM_WR,SQ_BUSY_CYCLES \
+           /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
    ```
 
 4. **Check for Bottlenecks**:
    ```bash
-   rocprof -m SQ_WAIT_ANY,TCP_PENDING_STALL_CYCLES,TCC_TAG_STALL
+   rocprof -m SQ_WAIT_ANY,TCP_PENDING_STALL_CYCLES,TCC_TAG_STALL \
+           /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
    ```
 
-This systematic approach helps identify performance bottlenecks in RCCL collective operations.
+## Container-Specific Usage
+
+### Available Scripts for Counter Analysis
+- **Quick profiling**: `/tools/scripts/quick_profile_rccl.sh`
+- **Basic profiling**: `/tools/scripts/profile_rccl_basic.sh`
+- **Advanced profiling**: `/tools/scripts/profile_rccl_advanced.sh`
+- **Multi-GPU profiling**: `/tools/scripts/profile_rccl_multi_gpu.sh`
+
+### Results Location
+All profiling results are saved to `/workspace/profiling_results/` for easy access and analysis.
+
+This systematic approach helps identify performance bottlenecks in RCCL collective operations within the container environment.

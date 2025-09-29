@@ -40,21 +40,21 @@ echo "=== Running Basic Profiling ==="
 # 1. Basic kernel and API tracing
 echo "1. Basic kernel and HIP API tracing..."
 rocprof --hip-trace --hsa-trace \
-        --output-file "${OUTPUT_DIR}/${TEST_NAME}_basic_${TIMESTAMP}" \
-        "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g 1 ${@:2}
+        -o "${OUTPUT_DIR}/${TEST_NAME}_basic_${TIMESTAMP}.csv" \
+        "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
 
 # 2. Performance statistics
 echo "2. Performance statistics..."
 rocprof --hip-trace --stats \
-        --output-file "${OUTPUT_DIR}/${TEST_NAME}_stats_${TIMESTAMP}" \
-        "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g 1 ${@:2}
+        -o "${OUTPUT_DIR}/${TEST_NAME}_stats_${TIMESTAMP}.csv" \
+        "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
 
 # 3. Memory-focused profiling
 echo "3. Memory-focused profiling..."
 rocprof --hip-trace \
         -m TCC_HIT,TCC_MISS,TCP_TCC_READ_REQ_sum,TCP_TCC_WRITE_REQ_sum \
-        --output-file "${OUTPUT_DIR}/${TEST_NAME}_memory_${TIMESTAMP}" \
-        "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g 1 ${@:2}
+        -o "${OUTPUT_DIR}/${TEST_NAME}_memory_${TIMESTAMP}.csv" \
+        "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
 
 echo "=== Profiling Complete ==="
 echo "Results saved in: ${OUTPUT_DIR}"

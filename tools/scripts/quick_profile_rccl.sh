@@ -69,8 +69,8 @@ echo "This will run a basic profiling session with essential metrics..."
 # Run basic profiling with essential metrics
 rocprof --hip-trace --hsa-trace \
         -m GRBM_GUI_ACTIVE,TCC_HIT,TCC_MISS,SQ_WAVES,TCC_EA_RDREQ,TCC_EA_WRREQ \
-        --output-file "${OUTPUT_DIR}/${TEST_NAME}_quick_${TIMESTAMP}" \
-        "${TEST_EXEC}" --allow-run-as-root -b 8 -e 128M -f 2 -g 1
+        -o "${OUTPUT_DIR}/${TEST_NAME}_quick_${TIMESTAMP}.csv" \
+        "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1
 
 echo -e "\n${GREEN}=== Profiling Complete! ===${NC}"
 echo "Results saved to: ${OUTPUT_DIR}/${TEST_NAME}_quick_${TIMESTAMP}"

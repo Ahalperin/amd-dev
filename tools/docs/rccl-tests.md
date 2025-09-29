@@ -105,7 +105,46 @@ The profiling scripts in `/tools/scripts/` automatically use the correct contain
 /tools/scripts/profile_rccl_multi_gpu.sh all_reduce_perf 4
 ```
 
+## Profiling rccl-tests using rocprofv3 directly without helper script
+
+```bash
+
+# perfetto profiling output
+TEST_NAME="all_reduce_perf" \
+RCCL_TESTS_DIR="/workspace/rccl-tests/" \
+OUTPUT_DIR="/workspace/profiling_results" \
+TIMESTAMP=$(date +%Y%m%d_%H%M%S) \
+TEST_EXEC="${RCCL_TESTS_DIR}/build/${TEST_NAME}" \
+NCCL_DEBUG=INFO \
+NCCL_DEBUG_SUBSYS=ALL \
+HSA_NO_SCRATCH_RECLAIM=1 \
+OUT_FORMAT="pftrace" \
+BASE_OUTFILE_NAME="${OUTPUT_DIR}/${TEST_NAME}_${TIMESTAMP}" \
+&& rocprofv3 -f ${OUT_FORMAT} --kernel-trace --hip-trace --hsa-trace --stats --rccl-trace \
+          -o "${BASE_OUTFILE_NAME}" \
+          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 \
+          -x "${BASE_OUTFILE_NAME}.rccl_test" | tee "${BASE_OUTFILE_NAME}.rccl_test.log"
+
+# csv profiling output
+TEST_NAME="all_reduce_perf" \
+RCCL_TESTS_DIR="/workspace/rccl-tests/" \
+OUTPUT_DIR="/workspace/profiling_results" \
+TIMESTAMP=$(date +%Y%m%d_%H%M%S) \
+TEST_EXEC="${RCCL_TESTS_DIR}/build/${TEST_NAME}" \
+NCCL_DEBUG=INFO \
+NCCL_DEBUG_SUBSYS=ALL \
+HSA_NO_SCRATCH_RECLAIM=1 \
+OUT_FORMAT="csv" \
+BASE_OUTFILE_NAME="${OUTPUT_DIR}/${TEST_NAME}_${TIMESTAMP}" \
+&& rocprofv3 -f ${OUT_FORMAT} --kernel-trace --hip-trace --hsa-trace --stats --rccl-trace \
+          -o "${BASE_OUTFILE_NAME}" \
+          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 \
+          -x "${BASE_OUTFILE_NAME}.rccl_test" | tee "${BASE_OUTFILE_NAME}.rccl_test.log"
+
+```
+
 ## Output and Results
 
 - Test results and profiling data are saved to `/workspace/profiling_results/`
 - Use the analysis script to examine results: `/tools/scripts/analyze_rccl_profile.py`
+- Use chrome://tracing/ to examin /workspace/profiling_results/
