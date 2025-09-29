@@ -6,21 +6,61 @@
 utils/containers/rccl_builder/build_rccl_builder
 ```
 
+### fetch source tree
+
+```bash
+cd ~
+git clone https://github.com/Ahalperin/amd-dev.git
+cd ~/amd-dev
+mkdir -p amd
+cd ~/amd-dev/adm
+git clone --recurse-submodules -b "develop" "ttps://github.com/ROCm/rccl"
+git clone --recurse-submodules -b "develop" "ttps://github.com/ROCm/rccl-tests"
+```
+
 ### Create RCCL Builder Container
 
 Run it from the directory that contains rccl and rccl_tests:
 
 ```bash
-# run container with root 
-docker run --rm -it --name rccl-builder --workdir /workspace -v $(pwd):/workspace -v /tmp/.X11-unix:/tmp/.X11-unix:rw -e DISPLAY=$DISPLAY -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) rccl-builder:latest
-# run container with user
-docker run --rm -it --name rccl-builder --workdir /workspace -v $(pwd):/workspace -v /tmp/.X11-unix:/tmp/.X11-unix:rw -e DISPLAY=$DISPLAY -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) rccl-builder:latest su user -c 'cd /workspace && exec /bin/bash'
+# run container with root permissions
+docker run --rm -it \
+  --name rccl-builder \
+  --workdir /workspace \
+  -v $(pwd):/workspace \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  -e DISPLAY=$DISPLAY \
+  -e USER_ID=$(id -u) \
+  -e GROUP_ID=$(id -g) \
+  rccl-builder:latest
 ```
+
+### when running from a container one can grant the container accessing the GPUs
+--device /dev/kfd - Grants access to the Kernel Fusion Driver, which is the main compute interface for AMD GPUs
+--device /dev/dri - Provides access to all GPU render nodes through the Direct Rendering Interface
+--security-opt seccomp=unconfined - Enables memory mapping operations that may be required for GPU communication
+
+```bash
+# run container with root permissions and grant access to the GPU drivers
+docker run --rm -it \
+  --name rccl-builder \
+  --workdir /workspace \
+  -v $(pwd):/workspace \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  -e DISPLAY=$DISPLAY \
+  -e USER_ID=$(id -u) \
+  -e GROUP_ID=$(id -g) \
+  --device /dev/kfd \
+  --device /dev/dri \
+  --security-opt seccomp=unconfined \
+  rccl-builder:latest
+```
+
 
 ### Build RCCL (gfx942 ==> MI300X)
 
 ```bash
-cd /worspace/rccl && ./install.sh --amdgpu_targets=${GPU_TARGETS} --prefix=/workspace/rccl/install/ -tests_build
+cd /workspace/rccl && ./install.sh --amdgpu_targets=gfx942 --prefix=/workspace/rccl/install/ --tests_build
 ```
 
 ### Build RCCL-Tests
