@@ -3,7 +3,7 @@
 ### Build RCCL Builder Docker Image
 
 ```bash
-utils/containers/rccl_builder/build_rccl_builder
+./rccl-builder/build_rccl_builder
 ```
 
 ### fetch source tree
@@ -13,9 +13,9 @@ cd ~
 git clone https://github.com/Ahalperin/amd-dev.git
 cd ~/amd-dev
 mkdir -p amd
-cd ~/amd-dev/adm
-git clone --recurse-submodules -b "develop" "ttps://github.com/ROCm/rccl"
-git clone --recurse-submodules -b "develop" "ttps://github.com/ROCm/rccl-tests"
+cd ~/amd-dev/amd
+git clone --recurse-submodules -b "develop" "https://github.com/ROCm/rccl"
+git clone --recurse-submodules -b "develop" "https://github.com/ROCm/rccl-tests"
 ```
 
 ### Create RCCL Builder Container
@@ -49,9 +49,11 @@ docker run --rm -it \
 
 
 ### Build RCCL (gfx942 ==> MI300X)
+### Build RCCL (gfx950 ==> MI325X)
 
 ```bash
 cd /workspace/rccl && ./install.sh --amdgpu_targets=gfx942 --prefix=/workspace/rccl/install/ --tests_build
+cd /workspace/rccl && ./install.sh --amdgpu_targets=gfx950 --prefix=/workspace/rccl/install/ --tests_build
 ```
 
 ### Build RCCL-Tests

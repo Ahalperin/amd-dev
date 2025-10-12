@@ -4,9 +4,9 @@
 ## ROCm version selection - can be overridden at build time
 
 
-ARG ROCM_VERSION=7.0
-ARG ROCM_IMAGE_NAME=rocm/dev-ubuntu-24.04
-ARG ROCM_IMAGE_TAG=7.0-complete
+ARG ROCM_VERSION=7.0.2
+ARG ROCM_IMAGE_NAME=rocm/dev-ubuntu-22.04
+ARG ROCM_IMAGE_TAG=7.0.2-complete
 
 # docker pull rocm/dev-ubuntu-24.04:7.0-complete
 FROM "${ROCM_IMAGE_NAME}:${ROCM_IMAGE_TAG}"
@@ -130,11 +130,16 @@ ENV CCACHE_DIR="/workspace/.ccache"
 RUN ln -sf /usr/bin/ccache /usr/lib/ccache/hipcc
 
 ## Enhanced profiling tools installation
-RUN pip3 install --no-cache-dir --break-system-packages \
-    pandas \
-    matplotlib \
-    seaborn \
-    numpy \
+# --break-system-packages is needed for ubuntu 24.04
+# RUN pip3 install --no-cache-dir --break-system-packages \
+#     pandas \
+#     matplotlib \
+#     seaborn \
+#     numpy \
+#     scipy \
+#     plotly \
+#     jupyter
+RUN pip3 install --no-cache-dir \
     scipy \
     plotly \
     jupyter
