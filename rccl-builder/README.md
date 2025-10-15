@@ -50,14 +50,18 @@ docker run --rm -it \
 
 ### Build RCCL (gfx942 ==> MI300X)
 ### Build RCCL (gfx950 ==> MI325X)
+### Build RCCL (-l ==> local installed GPU type)
 
 ```bash
-cd /workspace/rccl && ./install.sh --amdgpu_targets=gfx942 --prefix=/workspace/rccl/install/ --tests_build
-cd /workspace/rccl && ./install.sh --amdgpu_targets=gfx950 --prefix=/workspace/rccl/install/ --tests_build
+# cd /workspace/rccl && ./install.sh --amdgpu_targets=gfx942 --prefix=/workspace/rccl/install/ --tests_build
+# cd /workspace/rccl && ./install.sh --amdgpu_targets=gfx950 --prefix=/workspace/rccl/install/ --tests_build
+# use -l to build RCCL for the local installed GPU's type
+cd /workspace/rccl && ./install.sh -l --prefix /opt/rocm/ --disable-mscclpp --disable-msccl-kernel --tests_build
 ```
 
 ### Build RCCL-Tests
 
 ```bash
 cd /workspace/rccl-tests/ && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/workspace/rccl/install;${MPI_INSTALL_PREFIX}" -DGPU_TARGETS=gfx942 .. && make -j6
+cd /workspace/rccl-tests/ && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/workspace/rccl/install;${MPI_INSTALL_PREFIX}" -DGPU_TARGETS=gfx950 .. && make -j6
 ```
