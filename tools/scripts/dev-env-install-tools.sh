@@ -31,12 +31,14 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 sudo systemctl start docker
 sudo systemctl enable docker
 
-# Add your user to the docker group (optional, allows running docker without sudo)
-sudo usermod -aG docker $USER
+# Add your user to the docker group (allows running docker without sudo)
+echo "$USER ALL = NOPASSWD: ALL" | sudo tee -a /etc/sudoers.d/$USER
 
-# Verify installation
-sudo docker --version
-sudo docker run hello-world
+# Apply the group changes for the current session
+newgrp docker
 
-# docker without using sudo
-echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/temp-nopasswd
+# Verify installation (now running without sudo)
+docker --version
+
+echo "Docker installed successfully! You can now use docker without sudo."
+echo "Note: If 'newgrp docker' didn't work, log out and log back in for group changes to take effect."
