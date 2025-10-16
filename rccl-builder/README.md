@@ -33,7 +33,7 @@ cd ~/amd-dev
 
 ```bash
 # run container with root permissions and grant access to the GPU drivers
-docker run --rm -it \
+  docker run --rm -it \
   --name rccl-builder \
   --workdir /workspace \
   -v $(pwd)/amd:/workspace \
@@ -45,6 +45,7 @@ docker run --rm -it \
   --device /dev/kfd \
   --device /dev/dri \
   --security-opt seccomp=unconfined \
+  --shm-size=512m \
   rccl-builder:latest
 ```
 
