@@ -45,47 +45,51 @@ echo "=== Running Advanced Profiling ==="
 
 # 1. Comprehensive profiling with Perfetto output (Chrome tracing)
 echo "1. Comprehensive profiling with Perfetto tracing..."
+# Note: For multi-GPU runs, we use only kernel-trace to avoid data corruption from millions of HIP API calls
+# --hip-trace and --hsa-trace generate excessive data (~3M+ calls) that causes profiler corruption
 rocprofv3 --output-format pftrace \
+          --memory-copy-trace \
+          --memory-allocation-trace \
+          --rccl-trace \
+          --marker-trace \
           --kernel-trace \
-          --hip-trace \
-          --hsa-trace \
           -o "${OUTPUT_DIR}/${TEST_NAME}_perfetto_${TIMESTAMP}" \
-          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
+          -- "${TEST_EXEC}" ${@:2}
 
-# 2. Detailed CSV profiling...
-echo "2. Detailed CSV profiling..."
-rocprofv3 --output-format csv \
-          --kernel-trace \
-          --hip-trace \
-          -o "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}" \
-          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
+# # 2. Detailed CSV profiling...
+# echo "2. Detailed CSV profiling..."
+# rocprofv3 --output-format csv \
+#           --kernel-trace \
+#           --hip-trace \
+#           -o "${OUTPUT_DIR}/${TEST_NAME}_detailed_${TIMESTAMP}" \
+#           -- "${TEST_EXEC}" ${@:2}
 
-# 3. JSON format for analysis tools
-echo "3. JSON profiling for analysis tools..."
-rocprofv3 --output-format json \
-          --kernel-trace \
-          --hip-trace \
-          --stats \
-          -o "${OUTPUT_DIR}/${TEST_NAME}_json_${TIMESTAMP}" \
-          -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
+# # 3. JSON format for analysis tools
+# echo "3. JSON profiling for analysis tools..."
+# rocprofv3 --output-format json \
+#           --kernel-trace \
+#           --hip-trace \
+#           --stats \
+#           -o "${OUTPUT_DIR}/${TEST_NAME}_json_${TIMESTAMP}" \
+#           -- "${TEST_EXEC}" ${@:2}
 
 # 4. System-level profiling (if available)
-echo "4. System-level profiling..."
-if command -v rocprof-sys-run &> /dev/null; then
-    rocprof-sys-run --trace \
-                    --sample-freq=1000 \
-                    --output="${OUTPUT_DIR}/${TEST_NAME}_system_${TIMESTAMP}" \
-                    -- "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
-else
-    echo "rocprof-sys-run not available, skipping system profiling"
-fi
+# echo "4. System-level profiling..."
+# if command -v rocprof-sys-run &> /dev/null; then
+#     rocprof-sys-run --trace \
+#                     --sample-freq=1000 \
+#                     --output="${OUTPUT_DIR}/${TEST_NAME}_system_${TIMESTAMP}" \
+#                     -- "${TEST_EXEC}" ${@:2}
+# else
+#     echo "rocprof-sys-run not available, skipping system profiling"
+# fi
 
 # 5. Performance counter profiling with specific metrics
-echo "5. Performance counter profiling..."
-rocprof --hip-trace \
-        -m SQ_WAVES,SQ_INSTS_VALU,GRBM_GUI_ACTIVE,SQ_INSTS_VMEM_RD,SQ_INSTS_VMEM_WR \
-        -o "${OUTPUT_DIR}/${TEST_NAME}_counters_${TIMESTAMP}.csv" \
-        "${TEST_EXEC}" -b 8 -e 128M -f 2 -g 1 ${@:2}
+# echo "5. Performance counter profiling..."
+# rocprof --hip-trace \
+#         -m SQ_WAVES,SQ_INSTS_VALU,GRBM_GUI_ACTIVE,SQ_INSTS_VMEM_RD,SQ_INSTS_VMEM_WR \
+#         -o "${OUTPUT_DIR}/${TEST_NAME}_counters_${TIMESTAMP}.csv" \
+#         "${TEST_EXEC}" ${@:2}
 
 echo "=== Profiling Complete ==="
 echo "Results saved in: ${OUTPUT_DIR}"

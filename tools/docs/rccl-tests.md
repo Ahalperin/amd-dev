@@ -62,6 +62,7 @@ USAGE: all_gather_perf
 ```shell
 # /workspace/rccl-tests/build/all_gather_perf --allow-run-as-root -t 1 -g 1 -b 4 -e 8G -f 2 -N 8
 /workspace/rccl-tests/build/all_gather_perf -t 1 -g 1 -b 4 -e 8G -f 2 -N 8
+NCCL_DEBUG=INFO /workspace/rccl-tests/build/all_gather_perf -t 1 -g 8 -b 4 -e 8G -f 2 -N 1 | tee ah_all_gather_perf_8gpus_rccl.log
 ```
 
 ### Execution for example on 1 node single GPU via mpirun
