@@ -81,6 +81,9 @@ RUN apt-get update \
     htop \
     strace \
     gdb \
+    iproute2 \
+    ethtool \
+    pciutils \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

@@ -33,7 +33,7 @@ cd ~/amd-dev
 
 ```bash
 # run container with root permissions and grant access to the GPU drivers
-  docker run --rm -it \
+docker run -d \
   --name rccl-builder \
   --workdir /workspace \
   -v $(pwd)/amd:/workspace \
@@ -46,7 +46,44 @@ cd ~/amd-dev
   --device /dev/dri \
   --security-opt seccomp=unconfined \
   --shm-size=512m \
-  rccl-builder:latest
+  rccl-builder:latest \
+  tail -f /dev/null
+
+# docker run -d \
+#   --name rccl-builder \
+#   --workdir /workspace \
+#   -v $(pwd)/amd:/workspace \
+#   -v $(pwd)/tools:/tools \
+#   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+#   -e DISPLAY=$DISPLAY \
+#   -e USER_ID=$(id -u) \
+#   -e GROUP_ID=$(id -g) \
+#   --device /dev/kfd \
+#   --device /dev/dri \
+#   --security-opt seccomp=unconfined \
+#   --security-opt apparmor=unconfined \
+#   --shm-size=512m \
+#   --privileged \
+#   --network=host \
+#   --pid=host \
+#   --ipc=host \
+#   -v /dev:/dev \
+#   -v /sys:/sys:ro \
+#   -v /proc:/proc \
+#   rccl-builder:latest \
+#   tail -f /dev/null
+
+# to access the running container:
+docker exec -it rccl-builder bash
+
+# to stop the container:
+docker stop rccl-builder
+
+# to start the container again:
+docker start rccl-builder
+
+# to remove the container:
+docker rm rccl-builder
 ```
 
 
