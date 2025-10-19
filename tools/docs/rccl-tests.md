@@ -74,9 +74,7 @@ mpirun --allow-run-as-root -np 1 --bind-to numa /workspace/rccl-tests/build/all_
 ### Execution for example on 2 nodes single GPU each
 
 ```shell
-mpirun --allow-run-as-root -np 2 --bind-to numa /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
-
-mpirun --allow-run-as-root -np 16 -H 172.30.160.147:1,172.30.160.127:1 --bind-to numa /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
+mpirun -H 172.30.160.147,172.30.160.146 -np 2 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO  /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 8"
 ```
 
 ## Available Test Executables

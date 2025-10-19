@@ -49,29 +49,29 @@ docker run -d \
   rccl-builder:latest \
   tail -f /dev/null
 
-# docker run -d \
-#   --name rccl-builder \
-#   --workdir /workspace \
-#   -v $(pwd)/amd:/workspace \
-#   -v $(pwd)/tools:/tools \
-#   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-#   -e DISPLAY=$DISPLAY \
-#   -e USER_ID=$(id -u) \
-#   -e GROUP_ID=$(id -g) \
-#   --device /dev/kfd \
-#   --device /dev/dri \
-#   --security-opt seccomp=unconfined \
-#   --security-opt apparmor=unconfined \
-#   --shm-size=512m \
-#   --privileged \
-#   --network=host \
-#   --pid=host \
-#   --ipc=host \
-#   -v /dev:/dev \
-#   -v /sys:/sys:ro \
-#   -v /proc:/proc \
-#   rccl-builder:latest \
-#   tail -f /dev/null
+docker run -d \
+  --name rccl-builder \
+  --workdir /workspace \
+  -v $(pwd)/amd:/workspace \
+  -v $(pwd)/tools:/tools \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  -e DISPLAY=$DISPLAY \
+  -e USER_ID=$(id -u) \
+  -e GROUP_ID=$(id -g) \
+  --device /dev/kfd \
+  --device /dev/dri \
+  --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined \
+  --shm-size=512m \
+  --privileged \
+  --network=host \
+  --pid=host \
+  --ipc=host \
+  -v /dev:/dev \
+  -v /sys:/sys:ro \
+  -v /proc:/proc \
+  rccl-builder:latest \
+  tail -f /dev/null
 
 # to access the running container:
 docker exec -it rccl-builder bash
