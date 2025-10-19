@@ -75,6 +75,8 @@ mpirun --allow-run-as-root -np 1 --bind-to numa /workspace/rccl-tests/build/all_
 
 ```shell
 mpirun --allow-run-as-root -np 2 --bind-to numa /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
+
+mpirun --allow-run-as-root -np 16 -H 172.30.160.147:1,172.30.160.127:1 --bind-to numa /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
 ```
 
 ## Available Test Executables
