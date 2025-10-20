@@ -65,16 +65,25 @@ USAGE: all_gather_perf
 NCCL_DEBUG=INFO /workspace/rccl-tests/build/all_gather_perf -t 1 -g 8 -b 4 -e 8G -f 2 -N 1 | tee ah_all_gather_perf_8gpus_rccl.log
 ```
 
-### Execution for example on 1 node single GPU via mpirun
+### Execute RCCL-tests on a single node inside docker container
+```shell
+docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_GRAPH_DUMP_FILE=ah_graph.xml /workspace/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 8
+```
+
+### Execution on 1 node single GPU via mpirun
 
 ```shell
 mpirun --allow-run-as-root -np 1 --bind-to numa /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
 ```
 
-### Execution for example on 2 nodes single GPU each
+### Execution on 2 nodes single GPU each
 
 ```shell
 mpirun -H 172.30.160.147,172.30.160.146 -np 2 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO  /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 8"
+
+mpirun -H 172.30.160.147:8,172.30.160.146:8 -np 16 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_GRAPH_DUMP_FILE=ah_graph.xml /workspace/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
+
+mpirun -H 172.30.160.146:8,172.30.160.147:8 -np 8 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH LD_LIBRARY_PATH=/workspace/rccl/build/release:\$LD_LIBRARY_PATH /workspace/rccl-tests/build/all_reduce_perf -b 64k -e 4G -f 2 -g 1"
 ```
 
 ## Available Test Executables

@@ -87,3 +87,20 @@ AMD-SMI Commands:
     ras               Retrieve CPER (RAS) entries from the driver
 ```
 
+### Reset a specific GPU (replace N with GPU number: 0, 1, 2, etc.)
+
+```shell
+sudo rocm-smi --gpureset -d N
+
+# Example: Reset GPU 0
+sudo rocm-smi --gpureset -d 0
+```
+
+### Reload AMD Kernel Module (All GPUs)
+```shell
+# Unload AMD GPU driver modules
+sudo modprobe -r amdgpu
+
+# Reload the driver
+sudo modprobe amdgpu
+```
