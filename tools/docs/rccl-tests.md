@@ -102,6 +102,37 @@ Common RCCL test executables available in `/workspace/rccl-tests/build/`:
 - **alltoall_perf**: All-to-all collective operation
 - **sendrecv_perf**: Send/receive point-to-point operations
 
+## Running Tests in Ephemeral Container
+
+The `run_rccl_test_container.sh` script creates a temporary container, runs the test, and automatically cleans up:
+
+```bash
+# Basic usage
+/tools/scripts/run_rccl_test_container.sh all_reduce_perf -b 8 -e 128M -f 2 -g 1
+
+# Run all_gather test with multiple GPUs
+/tools/scripts/run_rccl_test_container.sh all_gather_perf -t 1 -g 8 -b 4 -e 8G -f 2
+
+# Run with debug output
+NCCL_DEBUG=INFO /tools/scripts/run_rccl_test_container.sh broadcast_perf -b 1M -e 1G -f 2
+
+# Run with debug subsystems
+NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,COLL /tools/scripts/run_rccl_test_container.sh all_reduce_perf -b 8 -e 128M -f 2 -g 1
+
+# Run in privileged mode (for advanced GPU access)
+USE_PRIVILEGED=1 /tools/scripts/run_rccl_test_container.sh all_reduce_perf -b 8 -e 128M -f 2 -g 1
+
+# Specify custom output directory
+RCCL_OUTPUT_DIR=/tmp/my_results /tools/scripts/run_rccl_test_container.sh all_gather_perf -b 1M -e 1G -f 2
+```
+
+Features:
+- Automatic container creation and cleanup
+- Captures all test output to log files
+- Saves logs to `rccl_test_results/` directory (configurable)
+- Supports all NCCL environment variables
+- No manual container management required
+
 ## Integration with Profiling Scripts
 
 The profiling scripts in `/tools/scripts/` automatically use the correct container paths:
@@ -163,3 +194,12 @@ BASE_OUTFILE_NAME="${OUTPUT_DIR}/${TEST_NAME}_${TIMESTAMP}" \
 - Test results and profiling data are saved to `/workspace/profiling_results/`
 - Use the analysis script to examine results: `/tools/scripts/analyze_rccl_profile.py`
 - Use chrome://tracing/ to examin /workspace/profiling_results/
+
+
+## Useful env
+export NCCL_DEBUG=INFO
+export NCCL_DEBUG_FILE=nccl_debug.log
+export NCCL_TOPO_DUMP_FILE=topo.xml
+export NCCL_GRAPH_DUMP_FILE=graph.xml
+export NCCL_DEBUG_SUBSYS=GRAPH,COLL
+env | grep NCCL
