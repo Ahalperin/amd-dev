@@ -32,7 +32,7 @@ sudo systemctl start docker
 sudo systemctl enable docker
 
 # Add your user to the docker group (allows running docker without sudo)
-echo "$USER ALL = NOPASSWD: ALL" | sudo tee -a /etc/sudoers.d/$USER
+sudo usermod -aG docker $USER
 
 # Apply the group changes for the current session
 newgrp docker
