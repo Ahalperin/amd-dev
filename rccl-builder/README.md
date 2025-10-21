@@ -107,6 +107,8 @@ cd /workspace/rccl && ./install.sh -l --prefix build/ --disable-mscclpp --disabl
 ```bash
 cd /workspace/rccl-tests/ && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/workspace/rccl/install;${MPI_INSTALL_PREFIX}" -DGPU_TARGETS=gfx942 .. && make -j6
 cd /workspace/rccl-tests/ && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/workspace/rccl/install;${MPI_INSTALL_PREFIX}" -DGPU_TARGETS=gfx950 .. && make -j6
+cd /workspace/rccl-tests/ && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/home/dn/amd-dev/amd/rccl/install;${MPI_INSTALL_PREFIX}" -DGPU_TARGETS=gfx950 .. && make -j6
 
 cd /workspace/rccl-tests/ && make MPI=1 MPI_HOME=/opt/ompi/ NCCL_HOME=/workspace/rccl -j 20
+cd /workspace/rccl-tests/ && make MPI=1 MPI_HOME=/opt/ompi/ NCCL_HOME=/home/dn/amd-dev/amd/rccl -j 20
 ```

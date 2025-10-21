@@ -84,6 +84,10 @@ mpirun -H 172.30.160.147,172.30.160.146 -np 2 docker exec  rccl-builder bash -c 
 mpirun -H 172.30.160.147:8,172.30.160.146:8 -np 16 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_GRAPH_DUMP_FILE=ah_graph.xml /workspace/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
 
 mpirun -H 172.30.160.146:8,172.30.160.147:8 -np 8 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH LD_LIBRARY_PATH=/workspace/rccl/build/release:\$LD_LIBRARY_PATH /workspace/rccl-tests/build/all_reduce_perf -b 64k -e 4G -f 2 -g 1"
+
+mpirun -H 172.30.160.127:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 8 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,ALL /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
+
+mpirun -H 172.30.160.127:8,172.30.160.128:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c "NCCL_DEBUG_SUBSYS=GRAPH,ALL /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
 ```
 
 ## Available Test Executables
