@@ -41,3 +41,8 @@ temp_*
 __pycache__/
 *.pyc
 *.pyo
+
+# RCCL tests output files
+**/graph.xml
+**/nccl_debug.log
+**/topo.xml
