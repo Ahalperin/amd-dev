@@ -174,9 +174,45 @@ get_network_driver() {
     fi
 }
 
+# Get RDMA device name associated with network interface
+get_rdma_device() {
+    local iface=$1
+    
+    # Try using rdma command first (most reliable)
+    if command -v rdma &> /dev/null; then
+        local rdma_info=$(rdma link show 2>/dev/null | grep "netdev $iface" | awk '{print $2}' | head -1)
+        if [ -n "$rdma_info" ]; then
+            # Extract only device name (e.g., "mlx5_0" from "mlx5_0/1")
+            echo "$rdma_info" | cut -d'/' -f1
+            return 0
+        fi
+    fi
+    
+    # Fallback: Check /sys/class/infiniband
+    if [ -d "/sys/class/infiniband" ]; then
+        for rdma_dev in /sys/class/infiniband/*; do
+            if [ -d "$rdma_dev" ]; then
+                local dev_name=$(basename "$rdma_dev")
+                # Check if this RDMA device is associated with the interface
+                for port in "$rdma_dev"/ports/*; do
+                    if [ -f "$port/gid_attrs/ndevs/0" ]; then
+                        local associated_iface=$(cat "$port/gid_attrs/ndevs/0" 2>/dev/null)
+                        if [ "$associated_iface" == "$iface" ]; then
+                            # Return only device name, not port
+                            echo "$dev_name"
+                            return 0
+                        fi
+                    fi
+                done
+            fi
+        done
+    fi
+    
+    echo "N/A"
+}
+
 # Main function
 main() {
-    clear 2>/dev/null || true
     print_header "═══════════════════════════════════════════════════════════════════════"
     print_header "           AMD GPU Network Configuration Discovery Tool"
     print_header "═══════════════════════════════════════════════════════════════════════"
@@ -211,26 +247,28 @@ main() {
             speed=$(get_interface_speed "$net_iface")
             status=$(get_interface_status "$net_iface")
             mtu=$(get_interface_mtu "$net_iface")
+            rdma_dev=$(get_rdma_device "$net_iface")
         else
             ip_addr="N/A"
             speed="N/A"
             status="N/A"
             mtu="N/A"
+            rdma_dev="N/A"
         fi
         
-        gpu_data[$idx]="$gpu_pci|$device_id|$net_iface|$ip_addr|$speed|$status|$numa_node|$mtu"
+        gpu_data[$idx]="$gpu_pci|$device_id|$net_iface|$ip_addr|$speed|$status|$numa_node|$mtu|$rdma_dev"
         idx=$((idx + 1))
     done <<< "$gpus"
     
     # Print GPU-to-Network mapping table
     print_header "GPU-to-Network Interface Mapping:"
     echo ""
-    printf "${BOLD}%-10s | %-16s | %-15s | %-12s | %-8s | %-9s${NC}\n" \
-        "GPU PCIe" "Network IF" "IP Address" "Speed" "Status" "NUMA Node"
-    echo "-----------|------------------|-----------------|--------------|----------|----------"
+    printf "${BOLD}%-10s | %-16s | %-15s | %-12s | %-8s | %-13s | %-9s${NC}\n" \
+        "GPU PCIe" "Network IF" "IP Address" "Speed" "Status" "RDMA Device" "NUMA Node"
+    echo "-----------|------------------|-----------------|--------------|--------|---------------|----------"
     
     for data in "${gpu_data[@]}"; do
-        IFS='|' read -r gpu_pci device_id net_iface ip_addr speed status numa_node mtu <<< "$data"
+        IFS='|' read -r gpu_pci device_id net_iface ip_addr speed status numa_node mtu rdma_dev <<< "$data"
         
         # Color code status
         if [ "$status" == "UP" ]; then
@@ -241,8 +279,8 @@ main() {
             status_colored="${YELLOW}${status}${NC}"
         fi
         
-        printf "%-10s | %-16s | %-15s | %-12s | %-17b | %-9s\n" \
-            "$gpu_pci" "$net_iface" "$ip_addr" "$speed" "$status_colored" "$numa_node"
+        printf "%-10s | %-16s | %-15s | %-12s | %-17b | %-13s | %-9s\n" \
+            "$gpu_pci" "$net_iface" "$ip_addr" "$speed" "$status_colored" "$rdma_dev" "$numa_node"
     done
     
     echo ""
@@ -254,7 +292,7 @@ main() {
     # Get unique network interfaces
     net_interfaces=()
     for data in "${gpu_data[@]}"; do
-        IFS='|' read -r gpu_pci device_id net_iface ip_addr speed status numa_node mtu <<< "$data"
+        IFS='|' read -r gpu_pci device_id net_iface ip_addr speed status numa_node mtu rdma_dev <<< "$data"
         if [ "$net_iface" != "N/A" ]; then
             net_interfaces+=("$net_iface")
         fi
@@ -276,20 +314,21 @@ main() {
         print_header "Network Topology:"
         echo ""
         
-        # Group by NUMA node
+        # Group by NUMA node and collect IP addresses
         declare -A numa_groups
         for data in "${gpu_data[@]}"; do
-            IFS='|' read -r gpu_pci device_id net_iface ip_addr speed status numa_node mtu <<< "$data"
+            IFS='|' read -r gpu_pci device_id net_iface ip_addr speed status numa_node mtu rdma_dev <<< "$data"
             if [ "$ip_addr" != "N/A" ]; then
-                subnet=$(echo "$ip_addr" | cut -d. -f1-3)
                 if [ -z "${numa_groups[$numa_node]}" ]; then
-                    numa_groups[$numa_node]="$subnet"
+                    numa_groups[$numa_node]="$net_iface: $ip_addr"
+                else
+                    numa_groups[$numa_node]="${numa_groups[$numa_node]}, $net_iface: $ip_addr"
                 fi
             fi
         done
         
         for numa_node in "${!numa_groups[@]}"; do
-            echo "  NUMA Node $numa_node: ${numa_groups[$numa_node]}.0/24 subnet"
+            echo "  NUMA Node $numa_node: ${numa_groups[$numa_node]}"
         done
         echo ""
     else
@@ -299,7 +338,6 @@ main() {
     
     # Performance recommendations
     print_header "Performance Notes:"
-    echo ""
     echo "  ✓ Jumbo frames enabled (MTU > 1500) for high throughput"
     echo "  ✓ Full duplex mode for bidirectional communication"
     echo "  ✓ Direct GPU-to-GPU networking via high-speed fabric"
@@ -307,20 +345,12 @@ main() {
     
     # Useful commands
     print_header "Useful Commands:"
-    echo ""
-    echo "  Monitor interface traffic:"
     echo "    ip -s link show <interface>"
-    echo ""
-    echo "  Check interface statistics:"
+    echo "    rdma link show"
     echo "    ethtool -S <interface>"
-    echo ""
-    echo "  Test connectivity:"
     echo "    ping -I <interface> <target_ip>"
-    echo ""
-    echo "  View routing table:"
     echo "    ip route show"
     echo ""
-    
     print_header "═══════════════════════════════════════════════════════════════════════"
 }
 
