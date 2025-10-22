@@ -6,110 +6,49 @@ Script to run NCCL/RCCL tests with mpirun across multiple nodes.
 import argparse
 import subprocess
 import sys
-<<<<<<< HEAD
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description='Run NCCL/RCCL tests with mpirun',
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    
-    parser.add_argument(
-        '--ip', 
-        required=True,
-        help='IP address of the target node'
-    )
-    parser.add_argument(
-        '--np', 
-        type=int,
-        required=True,
-        help='Number of processes to spawn'
-    )
-    parser.add_argument(
-        '--test-name',
-        required=True,
-        help='Name of the test executable (e.g., all_reduce_perf)'
-    )
-    parser.add_argument(
-        '--from-bytes',
-        type=int,
-        required=True,
-        help='Starting byte size for the test'
-    )
-    parser.add_argument(
-        '--to-bytes',
-        type=int,
-        required=True,
-        help='Ending byte size for the test'
-    )
-    parser.add_argument(
-        '--step-bytes',
-        type=int,
-        required=True,
-        help='Byte step size for the test'
-    )
-    
-    args = parser.parse_args()
-    
-    # Build the mpirun command
-    cmd = [
-        'mpirun',
-        '-H', f'{args.ip}:{args.np}',
-        '-np', str(args.np),
-=======
 import os
+from datetime import datetime
 
 
-def run_single_test(ip, np, test_name, from_bytes, to_bytes, step_factor):
+def run_single_test(ip, np, test_name, from_bytes, to_bytes, step_factor, output_dir):
     """Run a single NCCL test with the given parameters."""
+    # Create prefix from test parameters
+    prefix = f"{test_name}_{from_bytes}_{to_bytes}_{step_factor}"
+    
+    # Define output file names with prefix inside output directory
+    test_results_log = os.path.join(output_dir, f"{prefix}.test.results.log")
+    nccl_debug_log = os.path.join(output_dir, f"{prefix}.nccl_debug.log")
+    topo_xml = os.path.join(output_dir, f"{prefix}.topo.xml")
+    graph_xml = os.path.join(output_dir, f"{prefix}.graph.xml")
+    
     # Build the mpirun command
     cmd = [
         'mpirun',
         '-H', f'{ip}:{np}',
         '-np', str(np),
->>>>>>> 6b42e4b (test auto initial)
         '--mca', 'oob_tcp_if_include', 'enp81s0f1np1',
         '--mca', 'btl_tcp_if_include', 'enp81s0f1np1',
         'bash', '-c',
-        f'NCCL_DEBUG=INFO NCCL_DEBUG_FILE=nccl_debug.log NCCL_TOPO_DUMP_FILE=topo.xml '
-        f'NCCL_GRAPH_DUMP_FILE=graph.xml NCCL_DEBUG_SUBSYS=GRAPH,ALL '
-<<<<<<< HEAD
-        f'/home/dn/amd-dev/amd/rccl-tests/build/{args.test_name} '
-        f'-b {args.from_bytes} -e {args.to_bytes} -f {args.step_bytes} -g 1'
-=======
+        f'NCCL_DEBUG=INFO NCCL_DEBUG_FILE={nccl_debug_log} NCCL_TOPO_DUMP_FILE={topo_xml} '
+        f'NCCL_GRAPH_DUMP_FILE={graph_xml} NCCL_DEBUG_SUBSYS=GRAPH,ALL '
         f'/home/dn/amd-dev/amd/rccl-tests/build/{test_name} '
         f'-b {from_bytes} -e {to_bytes} -f {step_factor} -g 1'
->>>>>>> 6b42e4b (test auto initial)
     ]
     
     print(f"Executing command:")
     print(' '.join(cmd))
     print()
-<<<<<<< HEAD
-    
-    # Execute the command
-    try:
-        result = subprocess.run(cmd, check=False)
-        sys.exit(result.returncode)
-    except KeyboardInterrupt:
-        print("\nCommand interrupted by user")
-        sys.exit(130)
-    except Exception as e:
-        print(f"Error executing command: {e}", file=sys.stderr)
-        sys.exit(1)
-=======
-    print(f"Note: Output files will be created in the current directory:")
-    print(f"  - test.results.log (test output)")
-    print(f"  - nccl_debug.log")
-    print(f"  - topo.xml")
-    print(f"  - graph.xml")
+    print(f"Note: Output files will be created in: {output_dir}/")
+    print(f"  - {prefix}.test.results.log (test output)")
+    print(f"  - {prefix}.nccl_debug.log")
+    print(f"  - {prefix}.topo.xml")
+    print(f"  - {prefix}.graph.xml")
     print()
     sys.stdout.flush()  # Ensure output is displayed before subprocess starts
     
     # Execute the command and capture output
     try:
-        with open('test.results.log', 'w') as log_file:
+        with open(test_results_log, 'w') as log_file:
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -127,7 +66,7 @@ def run_single_test(ip, np, test_name, from_bytes, to_bytes, step_factor):
             process.wait()
             returncode = process.returncode
         
-        print(f"\nTest output saved to: test.results.log")
+        print(f"\nTest output saved to: {os.path.basename(test_results_log)}")
         return returncode
     except KeyboardInterrupt:
         print("\nCommand interrupted by user")
@@ -240,6 +179,18 @@ Parameter file format (space-separated):
     
     args = parser.parse_args()
     
+    # Create timestamped output directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = f"nccl_test_run_{timestamp}"
+    
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"Created output directory: {output_dir}/")
+        print()
+    except Exception as e:
+        print(f"Error creating output directory '{output_dir}': {e}", file=sys.stderr)
+        sys.exit(1)
+    
     # Determine mode: file-based or argument-based
     if args.params_file:
         # File-based mode
@@ -259,7 +210,7 @@ Parameter file format (space-separated):
             print(f"{'='*80}")
             print(f"Running test {i}/{len(tests)}")
             print(f"{'='*80}")
-            returncode = run_single_test(**test)
+            returncode = run_single_test(**test, output_dir=output_dir)
             if returncode != 0:
                 failed_tests.append((i, test, returncode))
             print()
@@ -270,10 +221,12 @@ Parameter file format (space-separated):
             print(f"Summary: {len(failed_tests)}/{len(tests)} test(s) failed:")
             for test_num, test, code in failed_tests:
                 print(f"  Test {test_num}: {test['ip']} {test['test_name']} (exit code: {code})")
+            print(f"\nAll output files are in: {output_dir}/")
             sys.exit(1)
         else:
             print(f"\n{'='*80}")
             print(f"All {len(tests)} test(s) completed successfully!")
+            print(f"All output files are in: {output_dir}/")
             sys.exit(0)
     else:
         # Argument-based mode (original behavior)
@@ -285,12 +238,11 @@ Parameter file format (space-separated):
         
         returncode = run_single_test(
             args.ip, args.np, args.test_name,
-            args.from_bytes, args.to_bytes, args.step_factor
+            args.from_bytes, args.to_bytes, args.step_factor,
+            output_dir
         )
         sys.exit(returncode)
->>>>>>> 6b42e4b (test auto initial)
 
 
 if __name__ == '__main__':
     main()
-
