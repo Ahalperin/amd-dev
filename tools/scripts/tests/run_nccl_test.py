@@ -10,10 +10,10 @@ import os
 from datetime import datetime
 
 
-def run_single_test(ip, np, test_name, from_bytes, to_bytes, step_factor, output_dir):
+def run_single_test(ip, np, test_name, minbytes, maxbytes, stepfactor, output_dir):
     """Run a single NCCL test with the given parameters."""
     # Create prefix from test parameters
-    prefix = f"{test_name}_{from_bytes}_{to_bytes}_{step_factor}"
+    prefix = f"{test_name}_{minbytes}_{maxbytes}_{stepfactor}"
     
     # Define output file names with prefix inside output directory
     test_results_log = os.path.join(output_dir, f"{prefix}.test.results.log")
@@ -32,7 +32,7 @@ def run_single_test(ip, np, test_name, from_bytes, to_bytes, step_factor, output
         f'NCCL_DEBUG=INFO NCCL_DEBUG_FILE={nccl_debug_log} NCCL_TOPO_DUMP_FILE={topo_xml} '
         f'NCCL_GRAPH_DUMP_FILE={graph_xml} NCCL_DEBUG_SUBSYS=GRAPH,ALL '
         f'/home/dn/amd-dev/amd/rccl-tests/build/{test_name} '
-        f'-b {from_bytes} -e {to_bytes} -f {step_factor} -g 1'
+        f'-b {minbytes} -e {maxbytes} -f {stepfactor} -g 1'
     ]
     
     print(f"Executing command:")
@@ -80,7 +80,7 @@ def read_params_from_file(filepath):
     """Read test parameters from a space-separated CSV file.
     
     Expected format (one test per line):
-    IP NP TEST_NAME FROM_BYTES TO_BYTES STEP_FACTOR
+    IP NP TEST_NAME MINBYTES MAXBYTES STEPFACTOR
     
     Example:
     172.30.160.200 8 all_reduce_perf 4 10000000 2
@@ -105,9 +105,9 @@ def read_params_from_file(filepath):
                         'ip': parts[0],
                         'np': int(parts[1]),
                         'test_name': parts[2],
-                        'from_bytes': int(parts[3]),
-                        'to_bytes': int(parts[4]),
-                        'step_factor': int(parts[5])
+                        'minbytes': int(parts[3]),
+                        'maxbytes': int(parts[4]),
+                        'stepfactor': int(parts[5])
                     }
                     tests.append(test_params)
                 except ValueError as e:
@@ -132,13 +132,13 @@ def main():
 Examples:
   # Run with command-line arguments
   %(prog)s --ip 172.30.160.200 --np 8 --test-name all_reduce_perf \\
-           --from-bytes 4 --to-bytes 10000000 --step-factor 2
+           -b 4 -e 10000000 -f 2
   
   # Run from parameter file
   %(prog)s --params-file tests.csv
   
 Parameter file format (space-separated):
-  IP NP TEST_NAME FROM_BYTES TO_BYTES STEP_FACTOR
+  IP NP TEST_NAME MINBYTES MAXBYTES STEPFACTOR
   172.30.160.200 8 all_reduce_perf 4 10000000 2
   172.30.160.201 2 all_gather_perf 1000 100000000 4
 """
@@ -162,19 +162,19 @@ Parameter file format (space-separated):
         help='Name of the test executable (e.g., all_reduce_perf)'
     )
     parser.add_argument(
-        '--from-bytes',
+        '-b', '--minbytes',
         type=int,
-        help='Starting byte size for the test'
+        help='Min size in bytes (starting byte size for the test)'
     )
     parser.add_argument(
-        '--to-bytes',
+        '-e', '--maxbytes',
         type=int,
-        help='Ending byte size for the test'
+        help='Max size in bytes (ending byte size for the test)'
     )
     parser.add_argument(
-        '--step-factor',
+        '-f', '--stepfactor',
         type=int,
-        help='Multiplicative step factor for the test (e.g., 2 for doubling, 4 for 4x growth)'
+        help='Increment factor (multiplicative step factor, e.g., 2 for doubling, 4 for 4x growth)'
     )
     
     args = parser.parse_args()
@@ -194,7 +194,7 @@ Parameter file format (space-separated):
     # Determine mode: file-based or argument-based
     if args.params_file:
         # File-based mode
-        if any([args.ip, args.np, args.test_name, args.from_bytes, args.to_bytes, args.step_factor]):
+        if any([args.ip, args.np, args.test_name, args.minbytes, args.maxbytes, args.stepfactor]):
             print("Warning: --params-file specified, ignoring other command-line arguments", file=sys.stderr)
         
         tests = read_params_from_file(args.params_file)
@@ -230,7 +230,7 @@ Parameter file format (space-separated):
             sys.exit(0)
     else:
         # Argument-based mode (original behavior)
-        required_args = ['ip', 'np', 'test_name', 'from_bytes', 'to_bytes', 'step_factor']
+        required_args = ['ip', 'np', 'test_name', 'minbytes', 'maxbytes', 'stepfactor']
         missing = [arg for arg in required_args if getattr(args, arg.replace('-', '_')) is None]
         
         if missing:
@@ -238,7 +238,7 @@ Parameter file format (space-separated):
         
         returncode = run_single_test(
             args.ip, args.np, args.test_name,
-            args.from_bytes, args.to_bytes, args.step_factor,
+            args.minbytes, args.maxbytes, args.stepfactor,
             output_dir
         )
         sys.exit(returncode)
