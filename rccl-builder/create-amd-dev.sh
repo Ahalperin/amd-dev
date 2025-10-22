@@ -1,3 +1,20 @@
+########################################################
+# Create AMD DEV environment
+########################################################
+
+# needed for ssh-copy-id to remote servers
+ssh-keygen -t ed25519 -C "dn@$(hostname)" -f ~/.ssh/id_ed25519
+
+# allow user to access gpus
+sudo usermod -aG render $USER
+sudo usermod -aG video $USER
+
+# add aliases to bashrc if they don't already exist
+grep -q "alias c='clear'" ~/.bashrc || echo "alias c='clear'" >> ~/.bashrc
+grep -q "alias gits='git status'" ~/.bashrc || echo "alias gits='git status'" >> ~/.bashrc
+source ~/.bashrc
+
+# create rccl-builder docker container
 cd ~/amd-dev/rccl-builder
 ./build_rccl_builder
 
