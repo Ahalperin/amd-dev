@@ -1,0 +1,1200 @@
+{
+    "test_configurations": [
+      {
+        "category": "protocols",
+        "tests": [
+          {
+            "name": "proto_simple_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=Simple \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_simple_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=Simple \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_simple_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=Simple \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_simple_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=Simple \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_simple_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=Simple \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_simple_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=Simple \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll128_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL128 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll128_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL128 \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll128_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL128 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll128_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL128 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll128_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL128 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "proto_ll128_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PROTO=LL128 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          }
+        ]
+      },
+      {
+        "category": "algorithms",
+        "tests": [
+          {
+            "name": "algo_ring_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Ring \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_ring_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Ring \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_ring_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Ring \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_ring_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Ring \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_ring_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Ring \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_ring_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Ring \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_tree_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Tree \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_tree_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Tree \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_tree_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Tree \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_tree_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Tree \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_tree_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Tree \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_tree_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Tree \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Collnet \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Collnet \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Collnet \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Collnet \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Collnet \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=Collnet \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_chain_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetChain \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_chain_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetChain \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_chain_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetChain \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_chain_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetChain \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_chain_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetChain \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_chain_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetChain \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_direct_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetDirect \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_direct_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetDirect \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_direct_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetDirect \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_direct_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetDirect \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_direct_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetDirect \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_collnet_direct_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=CollnetDirect \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_pat_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=PAT \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_pat_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=PAT \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_pat_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=PAT \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_pat_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=PAT \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_pat_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=PAT \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "algo_pat_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_ALGO=PAT \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          }
+        ]
+      },
+      {
+        "category": "pxn",
+        "tests": [
+          {
+            "name": "pxn_enabled_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PXN_DISABLE=0 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "pxn_enabled_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PXN_DISABLE=0 \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "pxn_enabled_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PXN_DISABLE=0 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "pxn_enabled_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PXN_DISABLE=0 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "pxn_enabled_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PXN_DISABLE=0 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "pxn_enabled_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            NCCL_PXN_DISABLE=0 \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          }
+        ]
+      },
+      {
+        "category": "clean_runs",
+        "tests": [
+          {
+            "name": "clean_all_reduce_with_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c "\
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_all_reduce_no_ld",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_all_gather_with_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_all_gather_no_ld",
+            "collective": "all_gather_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_gather_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_alltoallv_with_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_alltoallv_no_ld",
+            "collective": "alltoallv_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoallv_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_alltoall_with_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_alltoall_no_ld",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_broadcast_with_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": true,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "clean_broadcast_no_ld",
+            "collective": "broadcast_perf",
+            "with_ld_library_path": false,
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            /home/dn/amd-dev/amd/rccl-tests/build/broadcast_perf -b 4 -e 8G -f 2 -g 1"
+          }
+        ]
+      },
+      {
+        "category": "scaling",
+        "tests": [
+          {
+            "name": "scale_1gpu_all_reduce",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "1",
+            "command": mpirun -H 172.30.160.131:1  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 1 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0 \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2gpu_all_reduce",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2",
+            "command": mpirun -H 172.30.160.131:2  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 2 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0,1 \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2gpu_alltoall",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2",
+            "command": mpirun -H 172.30.160.131:2  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 2 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0,1 \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_4gpu_all_reduce",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "4",
+            "command": mpirun -H 172.30.160.131:4  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 4 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0,1,2,3 \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_4gpu_alltoall",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "4",
+            "command": mpirun -H 172.30.160.131:4  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 4 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0,1,2,3 \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_8gpu_all_reduce",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "8",
+            "command": mpirun -H 172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 8 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_8gpu_alltoall",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "8",
+            "command": mpirun -H 172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 8 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2x1gpu_all_reduce",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2x1",
+            "command": mpirun -H 172.30.160.201:1,172.30.160.131:1  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 2 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0 \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2x1gpu_alltoall",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2x1",
+            "command": mpirun -H 172.30.160.201:1,172.30.160.131:1  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 2 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0 \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2x2gpu_all_reduce",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2x2",
+            "command": mpirun -H 172.30.160.201:2,172.30.160.131:2  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 4 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0,1 \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2x2gpu_alltoall",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2x2",
+            "command": mpirun -H 172.30.160.201:2,172.30.160.131:2  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 4 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0,1 \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2x4gpu_all_reduce",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2x4",
+            "command": mpirun -H 172.30.160.201:4,172.30.160.131:4  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 8 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0,1,2,3 \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2x4gpu_alltoall",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2x4",
+            "command": mpirun -H 172.30.160.201:4,172.30.160.131:4  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 8 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            HIP_VISIBLE_DEVICES=0,1,2,3 \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2x8gpu_all_reduce",
+            "collective": "all_reduce_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2x8",
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 8G -f 2 -g 1"
+          },
+          {
+            "name": "scale_2x8gpu_alltoall",
+            "collective": "alltoall_perf",
+            "with_ld_library_path": true,
+            "gpu_config": "2x8",
+            "command": mpirun -H 172.30.160.201:8,172.30.160.131:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c " \
+            NCCL_DEBUG_SUBSYS=ALL \
+            NCCL_DEBUG=TRACE \
+            NCCL_DEBUG_FILE=nccl_debug.log \
+            NCCL_TOPO_DUMP_FILE=topo.xml \
+            NCCL_GRAPH_DUMP_FILE=graph.xml \
+            LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:$LD_LIBRARY_PATH \
+            /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 4 -e 8G -f 2 -g 1"
+          }
+        ]
+      }
+    ]
+  }

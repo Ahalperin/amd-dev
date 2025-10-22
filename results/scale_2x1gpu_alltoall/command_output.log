@@ -1,0 +1,49 @@
+# Collective test starting: alltoall_perf
+# nThread 1 nGpus 1 minBytes 4 maxBytes 8589934592 step: 2(factor) warmup iters: 5 iters: 20 agg iters: 1 validation: 1 graph: 0
+#
+rccl-tests: Version Unknown 
+# Using devices
+#  Rank  0 Group  0 Pid 117218 on amd-mi355x-5 device  0 [0000:05:00] AMD Instinct MI355X
+#  Rank  1 Group  0 Pid  99916 on amd-mi355x-6 device  0 [0000:05:00] AMD Instinct MI355X
+#
+#                                                              out-of-place                       in-place          
+#       size         count      type   redop    root     time   algbw   busbw #wrong     time   algbw   busbw #wrong                               
+#        (B)    (elements)                               (us)  (GB/s)  (GB/s)            (us)  (GB/s)  (GB/s)                                      
+           0             0     float    none      -1     0.09    0.00    0.00      0     0.04    0.00    0.00    N/A
+           0             0     float    none      -1     0.04    0.00    0.00      0     0.04    0.00    0.00    N/A
+           0             0     float    none      -1     0.04    0.00    0.00      0     0.04    0.00    0.00    N/A
+          32             4     float    none      -1    51.92    0.00    0.00      0    51.72    0.00    0.00    N/A
+          64             8     float    none      -1    49.37    0.00    0.00      0    61.18    0.00    0.00    N/A
+         128            16     float    none      -1    59.49    0.00    0.00      0    50.26    0.00    0.00    N/A
+         256            32     float    none      -1    66.01    0.00    0.00      0    56.59    0.00    0.00    N/A
+         512            64     float    none      -1    49.27    0.01    0.01      0    49.59    0.01    0.01    N/A
+        1024           128     float    none      -1    58.53    0.02    0.01      0    49.77    0.02    0.01    N/A
+        2048           256     float    none      -1    48.37    0.04    0.02      0    50.07    0.04    0.02    N/A
+        4096           512     float    none      -1    56.92    0.07    0.04      0    49.60    0.08    0.04    N/A
+        8192          1024     float    none      -1    60.21    0.14    0.07      0    50.49    0.16    0.08    N/A
+       16384          2048     float    none      -1    62.91    0.26    0.13      0    50.31    0.33    0.16    N/A
+       32768          4096     float    none      -1    50.44    0.65    0.32      0    59.50    0.55    0.28    N/A
+       65536          8192     float    none      -1    52.31    1.25    0.63      0    61.96    1.06    0.53    N/A
+      131072         16384     float    none      -1    80.66    1.63    0.81      0    61.04    2.15    1.07    N/A
+      262144         32768     float    none      -1    57.50    4.56    2.28      0    69.13    3.79    1.90    N/A
+      524288         65536     float    none      -1    65.40    8.02    4.01      0    69.09    7.59    3.79    N/A
+     1048576        131072     float    none      -1    85.22   12.31    6.15      0    89.38   11.73    5.87    N/A
+     2097152        262144     float    none      -1    106.6   19.67    9.83      0    122.5   17.12    8.56    N/A
+     4194304        524288     float    none      -1    166.7   25.16   12.58      0    169.2   24.80   12.40    N/A
+     8388608       1048576     float    none      -1    271.1   30.94   15.47      0    292.2   28.71   14.35    N/A
+    16777216       2097152     float    none      -1    488.1   34.37   17.19      0    502.6   33.38   16.69    N/A
+    33554432       4194304     float    none      -1    935.4   35.87   17.94      0    966.1   34.73   17.37    N/A
+    67108864       8388608     float    none      -1   1750.6   38.33   19.17      0   1823.9   36.79   18.40    N/A
+   134217728      16777216     float    none      -1   3482.5   38.54   19.27      0   3633.6   36.94   18.47    N/A
+   268435456      33554432     float    none      -1   6761.7   39.70   19.85      0   7138.4   37.60   18.80    N/A
+   536870912      67108864     float    none      -1    13563   39.58   19.79      0    14240   37.70   18.85    N/A
+  1073741824     134217728     float    none      -1    26912   39.90   19.95      0    28242   38.02   19.01    N/A
+  2147483648     268435456     float    none      -1    53735   39.96   19.98      0    56626   37.92   18.96    N/A
+  4294967296     536870912     float    none      -1   107643   39.90   19.95      0   112975   38.02   19.01    N/A
+  8589934592    1073741824     float    none      -1   214979   39.96   19.98      0   225075   38.16   19.08    N/A
+# Errors with asterisks indicate errors that have exceeded the maximum threshold.
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 7.48648 
+#
+# Collective test concluded: alltoall_perf
+

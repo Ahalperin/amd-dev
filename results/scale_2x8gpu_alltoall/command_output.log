@@ -1,0 +1,21 @@
+# Collective test starting: alltoall_perf
+# nThread 1 nGpus 1 minBytes 4 maxBytes 8589934592 step: 2(factor) warmup iters: 5 iters: 20 agg iters: 1 validation: 1 graph: 0
+#
+rccl-tests: Version Unknown 
+# Using devices
+#  Rank  0 Group  0 Pid 122426 on amd-mi355x-5 device  0 [0000:05:00] AMD Instinct MI355X
+#  Rank  1 Group  0 Pid 122427 on amd-mi355x-5 device  1 [0000:15:00] AMD Instinct MI355X
+#  Rank  2 Group  0 Pid 122428 on amd-mi355x-5 device  2 [0000:65:00] AMD Instinct MI355X
+#  Rank  3 Group  0 Pid 122429 on amd-mi355x-5 device  3 [0000:75:00] AMD Instinct MI355X
+#  Rank  4 Group  0 Pid 122430 on amd-mi355x-5 device  4 [0000:85:00] AMD Instinct MI355X
+#  Rank  5 Group  0 Pid 122432 on amd-mi355x-5 device  5 [0000:95:00] AMD Instinct MI355X
+#  Rank  6 Group  0 Pid 122433 on amd-mi355x-5 device  6 [0000:e5:00] AMD Instinct MI355X
+#  Rank  7 Group  0 Pid 122434 on amd-mi355x-5 device  7 [0000:f5:00] AMD Instinct MI355X
+#  Rank  8 Group  0 Pid 103021 on amd-mi355x-6 device  0 [0000:05:00] AMD Instinct MI355X
+#  Rank  9 Group  0 Pid 103022 on amd-mi355x-6 device  1 [0000:15:00] AMD Instinct MI355X
+#  Rank 10 Group  0 Pid 103023 on amd-mi355x-6 device  2 [0000:65:00] AMD Instinct MI355X
+#  Rank 11 Group  0 Pid 103024 on amd-mi355x-6 device  3 [0000:75:00] AMD Instinct MI355X
+#  Rank 12 Group  0 Pid 103025 on amd-mi355x-6 device  4 [0000:85:00] AMD Instinct MI355X
+#  Rank 13 Group  0 Pid 103026 on amd-mi355x-6 device  5 [0000:95:00] AMD Instinct MI355X
+#  Rank 14 Group  0 Pid 103027 on amd-mi355x-6 device  6 [0000:e5:00] AMD Instinct MI355X
+#  Rank 15 Group  0 Pid 103028 on amd-mi355x-6 device  7 [0000:f5:00] AMD Instinct MI355X
