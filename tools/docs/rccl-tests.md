@@ -88,6 +88,12 @@ mpirun -H 172.30.160.146:8,172.30.160.147:8 -np 8 docker exec  rccl-builder bash
 mpirun -H 172.30.160.127:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 8 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,ALL /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
 
 mpirun -H 172.30.160.127:8,172.30.160.128:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c "NCCL_DEBUG_SUBSYS=GRAPH,ALL /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
+
+mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG_SUBSYS=GRAPH,ALL LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128K -e 4G -f 2 -g 1"
+mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_FILE=nccl_debug.log  NCCL_TOPO_DUMP_FILE=topo.xml  NCCL_GRAPH_DUMP_FILE=graph.xml NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_IB_GID_INDEX=1 NCCL_SOCKET_IFNAME=enp81s0f1np1 LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128K -e 4G -f 2 -g 1"
+
+mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.nccl_debug.log NCCL_TOPO_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.topo.xml NCCL_GRAPH_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.graph.xml NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_IB_GID_INDEX=1 NCCL_SOCKET_IFNAME=enp81s0f1np1 LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128000 -e 8000000000 -f 2 -g 1"
+
 ```
 
 ## Available Test Executables

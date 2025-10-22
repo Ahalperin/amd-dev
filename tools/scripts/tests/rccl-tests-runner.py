@@ -11,7 +11,37 @@ from datetime import datetime
 
 
 def run_single_test(ip, np, test_name, minbytes, maxbytes, stepfactor, output_dir):
-    """Run a single NCCL test with the given parameters."""
+    """Run a single NCCL test with the given parameters.
+    
+    Args:
+        ip: Single IP address or list of IP addresses
+        np: Total number of processes
+        test_name: Name of the test executable
+        minbytes: Minimum byte size
+        maxbytes: Maximum byte size
+        stepfactor: Step factor
+        output_dir: Output directory path
+    """
+    # Handle IP address(es)
+    if isinstance(ip, list):
+        ip_list = ip
+    else:
+        ip_list = [ip]
+    
+    # Calculate processes per host - distribute evenly
+    num_hosts = len(ip_list)
+    procs_per_host = np // num_hosts
+    remainder = np % num_hosts
+    
+    # Build host string for mpirun: host1:slots,host2:slots,...
+    host_specs = []
+    for i, host_ip in enumerate(ip_list):
+        # Distribute remainder processes to first hosts
+        slots = procs_per_host + (1 if i < remainder else 0)
+        host_specs.append(f"{host_ip}:{slots}")
+    
+    host_string = ','.join(host_specs)
+    
     # Create prefix from test parameters
     prefix = f"{test_name}_{minbytes}_{maxbytes}_{stepfactor}"
     
@@ -21,19 +51,36 @@ def run_single_test(ip, np, test_name, minbytes, maxbytes, stepfactor, output_di
     topo_xml = os.path.join(output_dir, f"{prefix}.topo.xml")
     graph_xml = os.path.join(output_dir, f"{prefix}.graph.xml")
     
+    # Build the rccl-test command content
+    bash_command = (
+        f'NCCL_DEBUG=INFO NCCL_DEBUG_FILE={nccl_debug_log} '
+        f'NCCL_TOPO_DUMP_FILE={topo_xml} '
+        f'NCCL_GRAPH_DUMP_FILE={graph_xml} '
+        f'NCCL_DEBUG_SUBSYS=GRAPH,ALL '
+        f'NCCL_IB_GID_INDEX=1 '
+        f'NCCL_SOCKET_IFNAME=enp81s0f1np1 '
+        f'LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH '
+        f'/home/dn/amd-dev/amd/rccl-tests/build/{test_name} '
+        f'-b {minbytes} -e {maxbytes} -f {stepfactor} -g 1'
+    )
+    
     # Build the mpirun command
     cmd = [
         'mpirun',
-        '-H', f'{ip}:{np}',
+        '-H', host_string,
         '-np', str(np),
         '--mca', 'oob_tcp_if_include', 'enp81s0f1np1',
         '--mca', 'btl_tcp_if_include', 'enp81s0f1np1',
-        'bash', '-c',
-        f'NCCL_DEBUG=INFO NCCL_DEBUG_FILE={nccl_debug_log} NCCL_TOPO_DUMP_FILE={topo_xml} '
-        f'NCCL_GRAPH_DUMP_FILE={graph_xml} NCCL_DEBUG_SUBSYS=GRAPH,ALL '
-        f'/home/dn/amd-dev/amd/rccl-tests/build/{test_name} '
-        f'-b {minbytes} -e {maxbytes} -f {stepfactor} -g 1'
+        'bash', '-c', f'{bash_command}'
     ]
+    
+    # Print host distribution info
+    if num_hosts > 1:
+        print(f"Running on {num_hosts} host(s):")
+        for i, host_ip in enumerate(ip_list):
+            slots = procs_per_host + (1 if i < remainder else 0)
+            print(f"  {host_ip}: {slots} process(es)")
+        print()
     
     print(f"Executing command:")
     print(' '.join(cmd))
@@ -76,14 +123,44 @@ def run_single_test(ip, np, test_name, minbytes, maxbytes, stepfactor, output_di
         return 1
 
 
+def parse_ip_list(ip_string):
+    """Parse IP address or list of IP addresses.
+    
+    Supports formats:
+    - Single IP: 172.30.160.200
+    - Comma-separated: 172.30.160.200,172.30.160.201
+    - Bracketed list: [172.30.160.200, 172.30.160.201]
+    
+    Returns:
+        str or list: Single IP string or list of IP strings
+    """
+    ip_string = ip_string.strip()
+    
+    # Handle bracketed list format: [ip1, ip2, ...]
+    if ip_string.startswith('[') and ip_string.endswith(']'):
+        ip_string = ip_string[1:-1]  # Remove brackets
+    
+    # Check if comma-separated
+    if ',' in ip_string:
+        ip_list = [ip.strip() for ip in ip_string.split(',')]
+        return ip_list
+    else:
+        return ip_string
+
+
 def read_params_from_file(filepath):
     """Read test parameters from a space-separated CSV file.
     
     Expected format (one test per line):
     IP NP TEST_NAME MINBYTES MAXBYTES STEPFACTOR
     
-    Example:
+    IP can be:
+    - Single IP: 172.30.160.200
+    - List: [172.30.160.200, 172.30.160.201]
+    
+    Examples:
     172.30.160.200 8 all_reduce_perf 4 10000000 2
+    [172.30.160.200, 172.30.160.201] 8 all_reduce_perf 4 10000000 2
     """
     tests = []
     try:
@@ -94,7 +171,21 @@ def read_params_from_file(filepath):
                 if not line or line.startswith('#'):
                     continue
                 
-                parts = line.split()
+                # Handle bracketed IP list - need special parsing
+                if line.startswith('['):
+                    # Find the closing bracket
+                    close_bracket = line.find(']')
+                    if close_bracket == -1:
+                        print(f"Warning: Line {line_num} has unclosed bracket. Skipping.", file=sys.stderr)
+                        print(f"  Line: {line}", file=sys.stderr)
+                        continue
+                    
+                    ip_part = line[:close_bracket+1]
+                    rest = line[close_bracket+1:].strip()
+                    parts = [ip_part] + rest.split()
+                else:
+                    parts = line.split()
+                
                 if len(parts) != 6:
                     print(f"Warning: Line {line_num} has {len(parts)} fields, expected 6. Skipping.", file=sys.stderr)
                     print(f"  Line: {line}", file=sys.stderr)
@@ -102,7 +193,7 @@ def read_params_from_file(filepath):
                 
                 try:
                     test_params = {
-                        'ip': parts[0],
+                        'ip': parse_ip_list(parts[0]),
                         'np': int(parts[1]),
                         'test_name': parts[2],
                         'minbytes': int(parts[3]),
@@ -130,8 +221,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run with command-line arguments
+  # Run with command-line arguments (single host)
   %(prog)s --ip 172.30.160.200 --np 8 --test-name all_reduce_perf \\
+           -b 4 -e 10000000 -f 2
+  
+  # Run with multiple hosts (comma-separated)
+  %(prog)s --ip 172.30.160.200,172.30.160.201 --np 8 --test-name all_reduce_perf \\
            -b 4 -e 10000000 -f 2
   
   # Run from parameter file
@@ -139,8 +234,12 @@ Examples:
   
 Parameter file format (space-separated):
   IP NP TEST_NAME MINBYTES MAXBYTES STEPFACTOR
+  
+  Single host:
   172.30.160.200 8 all_reduce_perf 4 10000000 2
-  172.30.160.201 2 all_gather_perf 1000 100000000 4
+  
+  Multiple hosts (bracketed list):
+  [172.30.160.200, 172.30.160.201] 8 all_reduce_perf 4 10000000 2
 """
     )
     
@@ -150,7 +249,7 @@ Parameter file format (space-separated):
     )
     parser.add_argument(
         '--ip', 
-        help='IP address of the target node'
+        help='IP address(es) of target node(s). Single IP or comma-separated list (e.g., "172.30.160.200,172.30.160.201")'
     )
     parser.add_argument(
         '--np', 
@@ -236,8 +335,11 @@ Parameter file format (space-separated):
         if missing:
             parser.error(f"the following arguments are required when not using --params-file: {', '.join('--' + arg for arg in missing)}")
         
+        # Parse IP list from command-line argument
+        ip_parsed = parse_ip_list(args.ip)
+        
         returncode = run_single_test(
-            args.ip, args.np, args.test_name,
+            ip_parsed, args.np, args.test_name,
             args.minbytes, args.maxbytes, args.stepfactor,
             output_dir
         )
