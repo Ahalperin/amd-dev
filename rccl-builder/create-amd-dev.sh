@@ -3,7 +3,8 @@
 ########################################################
 
 # needed for ssh-copy-id to remote servers
-ssh-keygen -t ed25519 -C "dn@$(hostname)" -f ~/.ssh/id_ed25519
+# ssh-keygen -t ed25519 -C "dn@$(hostname)" -f ~/.ssh/id_ed25519
+[ ! -f ~/.ssh/id_ed25519 ] && ssh-keygen -t ed25519 -C "dn@$(hostname)" -f ~/.ssh/id_ed25519 -N "" -q
 
 # allow user to access gpus
 sudo usermod -aG render $USER
@@ -16,7 +17,7 @@ source ~/.bashrc
 
 # create rccl-builder docker container
 cd ~/amd-dev/rccl-builder
-./build_rccl_builder
+sudo ./build_rccl_builder
 
 cd ~
 git clone https://github.com/Ahalperin/amd-dev.git
@@ -38,7 +39,7 @@ git checkout tags/v1.1.0-5
 git switch -c v1.1.0-5
 
 cd ~/amd-dev
-docker run -d \
+sudo docker run -d \
   --name rccl-builder \
   --workdir /workspace \
   -v /opt/rocm-7.0.1:/opt/rocm-7.0.1 \
@@ -65,8 +66,8 @@ docker run -d \
 
 
 # build rccl & rccl-tests
-docker exec -it rccl-builder bash -c "cd /workspace/rccl && ROCM_PATH=/opt/rocm-7.0.1 ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel"
-docker exec -it rccl-builder bash -c 'cd /workspace/rccl-tests/ && mkdir -p build && cd build && ROCM_PATH=/opt/rocm-7.0.1 cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/home/dn/amd-dev/amd/rccl/install;${MPI_INSTALL_PREFIX}" -DGPU_TARGETS=gfx950 .. && make -j6'
+sudo docker exec -it rccl-builder bash -c "cd /workspace/rccl && ROCM_PATH=/opt/rocm-7.0.1 ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel"
+sudo docker exec -it rccl-builder bash -c 'cd /workspace/rccl-tests/ && mkdir -p build && cd build && ROCM_PATH=/opt/rocm-7.0.1 cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/home/dn/amd-dev/amd/rccl/install;${MPI_INSTALL_PREFIX}" -DGPU_TARGETS=gfx950 .. && make -j6'
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
 sudo make RCCL_HOME=/home/dn/amd-dev/amd/rccl/ MPI_INCLUDE=/opt/ompi-4.1.6/build/ompi/include/ MPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/ ROCM_PATH=/opt/rocm-7.0.1/
