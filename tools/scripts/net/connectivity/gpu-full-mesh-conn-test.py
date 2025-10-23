@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import argparse
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 
 class NetworkDiscoveryRunner:
@@ -30,6 +32,7 @@ class NetworkDiscoveryRunner:
         self.net_discovery_script = net_discovery_script
         self.ssh_user = ssh_user
         self.interface_map: Dict[str, str] = {}
+        self.print_lock = threading.Lock()  # For thread-safe printing
         
     def read_servers_list(self) -> List[str]:
         """
@@ -266,21 +269,22 @@ class NetworkDiscoveryRunner:
         
         return interface_map
     
-    def execute_ping_test(self, server_ip: str, local_interface: str, remote_ip: str) -> bool:
+    def execute_ping_test(self, server_ip: str, local_ip: str, remote_ip: str) -> bool:
         """
         Execute a ping test from a specific interface on a remote server to a target IP
         
         Args:
             server_ip: IP address of the server to run ping from
-            local_interface: Network interface to use as source
+            local_ip: Source interface IP address to use for ping
             remote_ip: Target IP to ping
             
         Returns:
             True if ping succeeds, False otherwise
         """
         try:
-            # Execute ping via SSH with interface binding
-            # Use -c 3 for 3 pings, -W 2 for 2 second timeout per ping
+            # Execute ping via SSH with interface IP binding
+            # Using -I with IP address is more reliable than interface name
+            # Use -c 1 for 1 ping, -W 1 for 1 second timeout
             ssh_cmd = [
                 "ssh",
                 "-o", "StrictHostKeyChecking=no",
@@ -288,7 +292,7 @@ class NetworkDiscoveryRunner:
                 "-o", "LogLevel=ERROR",
                 "-o", "ConnectTimeout=5",
                 f"{self.ssh_user}@{server_ip}",
-                f"ping -I {local_interface} -c 1 -W 1 {remote_ip} > /dev/null 2>&1"
+                f"ping -I {local_ip} -c 1 -W 1 {remote_ip} > /dev/null 2>&1"
             ]
             
             result = subprocess.run(
@@ -303,27 +307,77 @@ class NetworkDiscoveryRunner:
         except subprocess.TimeoutExpired:
             return False
         except Exception as e:
-            print(f"Warning: Error executing ping from {server_ip}:{local_interface} to {remote_ip}: {e}", file=sys.stderr)
+            print(f"Warning: Error executing ping from {server_ip}:{local_ip} to {remote_ip}: {e}", file=sys.stderr)
             return False
     
-    def run_full_mesh_ping_tests(self, interface_map: Dict[str, str]) -> Dict[str, str]:
+    def test_server_interfaces(self, server_ip: str, interfaces: List[Tuple[str, str]], 
+                               all_remote_ips: List[str], ip_to_server: Dict[str, str]) -> Dict[str, str]:
         """
-        Run full mesh ping tests between all interfaces
+        Test all interfaces from a single server (executed in parallel per server)
+        
+        Args:
+            server_ip: IP address of the source server
+            interfaces: List of (interface_name, interface_ip) tuples for this server
+            all_remote_ips: List of all remote IPs to test
+            ip_to_server: Mapping of IP address to server IP
+            
+        Returns:
+            Dictionary of ping results for this server
+        """
+        # ANSI color codes
+        GREEN = '\033[0;32m'
+        RED = '\033[0;31m'
+        NC = '\033[0m'
+        
+        server_results = {}
+        
+        # For each interface on this server
+        for local_interface, local_ip in interfaces:
+            # Ping all remote IPs (excluding own IP and GPUs on same server)
+            for remote_ip in all_remote_ips:
+                if remote_ip == local_ip:
+                    # Skip pinging self
+                    continue
+                
+                # Get target server IP
+                target_server_ip = ip_to_server.get(remote_ip, "Unknown")
+                
+                # Skip if target is on the same server (GPUs on same server use internal switch)
+                if target_server_ip == server_ip:
+                    continue
+                
+                test_key = f"{server_ip}:{local_interface}:{remote_ip}"
+                
+                # Execute ping test using source IP address
+                success = self.execute_ping_test(server_ip, local_ip, remote_ip)
+                
+                if success:
+                    server_results[test_key] = "pass"
+                    status = f"{GREEN}PASS{NC}"
+                else:
+                    server_results[test_key] = "fail"
+                    status = f"{RED}FAIL{NC}"
+                
+                # Thread-safe printing
+                with self.print_lock:
+                    print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}", file=sys.stderr)
+        
+        return server_results
+    
+    def run_full_mesh_ping_tests(self, interface_map: Dict[str, str], max_workers: int = None) -> Dict[str, str]:
+        """
+        Run full mesh ping tests between all interfaces (parallelized by server)
         
         Args:
             interface_map: Dictionary mapping server_ip:interface to interface IP
+            max_workers: Maximum number of parallel workers (default: number of servers)
             
         Returns:
             Dictionary mapping server:interface:remote_ip to test result (pass/fail)
         """
         print("\n" + "=" * 60, file=sys.stderr)
-        print("Starting Full Mesh Ping Tests", file=sys.stderr)
+        print("Starting Full Mesh Ping Tests (Parallel Execution)", file=sys.stderr)
         print("=" * 60, file=sys.stderr)
-        
-        # ANSI color codes
-        GREEN = '\033[0;32m'
-        RED = '\033[0;31m'
-        NC = '\033[0m'
         
         # Create reverse mapping: interface_ip -> server_ip
         ip_to_server = {}
@@ -340,45 +394,41 @@ class NetworkDiscoveryRunner:
         # Collect all remote IPs (target IPs for pinging)
         all_remote_ips = list(interface_map.values())
         
-        ping_results = {}
-        total_tests = 0
-        passed_tests = 0
+        # If max_workers not specified, use number of servers
+        if max_workers is None:
+            max_workers = len(server_interfaces)
         
+        print(f"Testing {len(server_interfaces)} servers in parallel with {max_workers} workers", file=sys.stderr)
         print("", file=sys.stderr)
         
-        # Iterate through each server
-        for server_ip, interfaces in sorted(server_interfaces.items()):
-            # For each interface on this server
-            for local_interface, local_ip in interfaces:
-                # Ping all remote IPs (excluding own IP and GPUs on same server)
-                for remote_ip in all_remote_ips:
-                    if remote_ip == local_ip:
-                        # Skip pinging self
-                        continue
-                    
-                    # Get target server IP
-                    target_server_ip = ip_to_server.get(remote_ip, "Unknown")
-                    
-                    # Skip if target is on the same server (GPUs on same server use internal switch)
-                    if target_server_ip == server_ip:
-                        continue
-                    
-                    total_tests += 1
-                    test_key = f"{server_ip}:{local_interface}:{remote_ip}"
-                    
-                    # Execute ping test
-                    success = self.execute_ping_test(server_ip, local_interface, remote_ip)
-                    
-                    if success:
-                        ping_results[test_key] = "pass"
-                        passed_tests += 1
-                        status = f"{GREEN}PASS{NC}"
-                    else:
-                        ping_results[test_key] = "fail"
-                        status = f"{RED}FAIL{NC}"
-                    
-                    # Print in new format: source_server : source_ip -> target_server : target_ip ... STATUS
-                    print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}", file=sys.stderr)
+        ping_results = {}
+        
+        # Use ThreadPoolExecutor to parallelize by server
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit a task for each server
+            future_to_server = {
+                executor.submit(
+                    self.test_server_interfaces, 
+                    server_ip, 
+                    interfaces, 
+                    all_remote_ips, 
+                    ip_to_server
+                ): server_ip 
+                for server_ip, interfaces in server_interfaces.items()
+            }
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_server):
+                server_ip = future_to_server[future]
+                try:
+                    server_results = future.result()
+                    ping_results.update(server_results)
+                except Exception as e:
+                    print(f"Error testing server {server_ip}: {e}", file=sys.stderr)
+        
+        # Calculate statistics
+        total_tests = len(ping_results)
+        passed_tests = sum(1 for result in ping_results.values() if result == "pass")
         
         print("\n" + "=" * 60, file=sys.stderr)
         print(f"Ping Tests Complete: {passed_tests}/{total_tests} passed", file=sys.stderr)
@@ -520,14 +570,17 @@ Example usage:
   # Run discovery with custom paths
   %(prog)s -s /path/to/servers.list -d /path/to/net-discovery.sh
   
-  # Run discovery and ping tests
+  # Run discovery and ping tests (parallel by default)
   %(prog)s servers.list --ping-test
+  
+  # Run ping tests with custom parallelism
+  %(prog)s servers.list --ping-test --parallel-workers 4
   
   # Skip discovery and load from saved map file, then run ping tests
   %(prog)s --skip-discovery --map-file gpu-interface-map.list --ping-test
   
   # Full command with all options
-  %(prog)s --servers servers.list --user dn --ping-test
+  %(prog)s --servers servers.list --user dn --ping-test --parallel-workers 7
         """
     )
     
@@ -575,6 +628,14 @@ Example usage:
         dest='map_file',
         default='gpu-interface-map.list',
         help='Interface map file to load when using --skip-discovery (default: gpu-interface-map.list)'
+    )
+    
+    parser.add_argument(
+        '--parallel-workers',
+        dest='parallel_workers',
+        type=int,
+        default=None,
+        help='Number of parallel workers for ping tests (default: number of servers)'
     )
     
     args = parser.parse_args()
@@ -642,7 +703,7 @@ Example usage:
             print("\nError: No interfaces discovered. Cannot run ping tests.", file=sys.stderr)
             sys.exit(1)
         
-        ping_results = runner.run_full_mesh_ping_tests(interface_map)
+        ping_results = runner.run_full_mesh_ping_tests(interface_map, max_workers=args.parallel_workers)
         runner.print_ping_results(ping_results, interface_map)
         
         # Exit with error code if any tests failed
