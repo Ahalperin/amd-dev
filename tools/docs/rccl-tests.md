@@ -94,6 +94,33 @@ mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp8
 
 mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.nccl_debug.log NCCL_TOPO_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.topo.xml NCCL_GRAPH_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.graph.xml NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_IB_GID_INDEX=1 NCCL_SOCKET_IFNAME=enp81s0f1np1 LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128000 -e 8000000000 -f 2 -g 1"
 
+mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
+bash -c " \
+NCCL_MIN_NCHANNELS=64 \
+NCCL_MAX_NCHANNELS=64 \
+RCCL_CUMEM_ENABLE=0 \
+NCCL_CUMEM_ENABLE=0 \
+NCCL_IB_PCI_RELAXED_ORDERING=0 \
+NCCL_IB_QPS_PER_CONNECTION=1 \
+NCCL_TOPO_DUMP_FILE=system.txt \
+HSA_NO_SCRATCH_RECLAIM=1 \
+NCCL_GDRCOPY_ENABLE=0 \
+NCCL_IB_TC=104 \
+NCCL_IB_FIFO_TC=192 \
+NCCL_IGNORE_CPU_AFFINITY=1 \
+RCCL_LL128_FORCE_ENABLE=1 \
+NCCL_PXN_DISABLE=0 \
+NET_OPTIONAL_RECV_COMPLETION=1 \
+NCCL_IB_USE_INLINE=1 \
+NCCL_GDR_FLUSH_DISABLE=1 \
+RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
+NCCL_DEBUG_SUBSYS=GRAPH,ALL \
+NCCL_IB_GID_INDEX=1 \
+NCCL_SOCKET_IFNAME=enp81s0f1np1 \
+UCX_NET_DEVICES=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+/home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1G -e 8G -f 2 -g 1"
+
 ```
 
 ## Available Test Executables
