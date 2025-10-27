@@ -19,7 +19,8 @@ import threading
 
 
 class NetworkDiscoveryRunner:
-    def __init__(self, servers_list_path: str, net_discovery_script: str, ssh_user: str = "dn"):
+    def __init__(self, servers_list_path: str, net_discovery_script: str, ssh_user: str = "dn",
+                 show_ongoing: bool = False):
         """
         Initialize the network discovery runner
         
@@ -27,10 +28,12 @@ class NetworkDiscoveryRunner:
             servers_list_path: Path to the servers.list file
             net_discovery_script: Path to the net-discovery.sh script
             ssh_user: SSH username for remote access (default: "dn")
+            show_ongoing: Show ongoing ping results in real-time (default: False)
         """
         self.servers_list_path = servers_list_path
         self.net_discovery_script = net_discovery_script
         self.ssh_user = ssh_user
+        self.show_ongoing = show_ongoing
         self.interface_map: Dict[str, str] = {}
         self.print_lock = threading.Lock()  # For thread-safe printing
         
@@ -231,9 +234,51 @@ class NetworkDiscoveryRunner:
             print(f"Error loading interface map: {e}", file=sys.stderr)
             sys.exit(1)
     
+    def discover_single_server(self, server_ip: str) -> Dict[str, str]:
+        """
+        Discover network interfaces on a single server (for parallel execution)
+        
+        Args:
+            server_ip: IP address of the server
+            
+        Returns:
+            Dictionary mapping "server_ip:interface" to interface IP address for this server
+        """
+        server_map = {}
+        
+        with self.print_lock:
+            print(f"\n{'='*60}", file=sys.stderr)
+            print(f"Processing server: {server_ip}", file=sys.stderr)
+            print(f"{'='*60}", file=sys.stderr)
+        
+        output = self.execute_remote_discovery(server_ip)
+        
+        if not output:
+            with self.print_lock:
+                print(f"No output received from {server_ip}", file=sys.stderr)
+            return server_map
+        
+        mappings = self.parse_discovery_output(server_ip, output)
+        
+        if not mappings:
+            with self.print_lock:
+                print(f"No network interfaces found on {server_ip}", file=sys.stderr)
+            return server_map
+        
+        with self.print_lock:
+            print(f"Found {len(mappings)} network interface(s) on {server_ip}", file=sys.stderr)
+        
+        for net_if, ip_addr in mappings:
+            key = f"{server_ip}:{net_if}"
+            server_map[key] = ip_addr
+            with self.print_lock:
+                print(f"  - {net_if}: {ip_addr}", file=sys.stderr)
+        
+        return server_map
+    
     def build_interface_map(self, servers: List[str]) -> Dict[str, str]:
         """
-        Build a complete map of all server interfaces
+        Build a complete map of all server interfaces (parallelized)
         
         Args:
             servers: List of server IP addresses
@@ -243,29 +288,25 @@ class NetworkDiscoveryRunner:
         """
         interface_map = {}
         
-        for server_ip in servers:
-            print(f"\n{'='*60}", file=sys.stderr)
-            print(f"Processing server: {server_ip}", file=sys.stderr)
-            print(f"{'='*60}", file=sys.stderr)
+        print(f"\nDiscovering network interfaces on {len(servers)} servers in parallel...", file=sys.stderr)
+        
+        # Use ThreadPoolExecutor to parallelize discovery across servers
+        with ThreadPoolExecutor(max_workers=len(servers)) as executor:
+            # Submit discovery task for each server
+            future_to_server = {
+                executor.submit(self.discover_single_server, server_ip): server_ip
+                for server_ip in servers
+            }
             
-            output = self.execute_remote_discovery(server_ip)
-            
-            if not output:
-                print(f"No output received from {server_ip}", file=sys.stderr)
-                continue
-            
-            mappings = self.parse_discovery_output(server_ip, output)
-            
-            if not mappings:
-                print(f"No network interfaces found on {server_ip}", file=sys.stderr)
-                continue
-            
-            print(f"Found {len(mappings)} network interface(s) on {server_ip}", file=sys.stderr)
-            
-            for net_if, ip_addr in mappings:
-                key = f"{server_ip}:{net_if}"
-                interface_map[key] = ip_addr
-                print(f"  - {net_if}: {ip_addr}", file=sys.stderr)
+            # Collect results as they complete
+            for future in as_completed(future_to_server):
+                server_ip = future_to_server[future]
+                try:
+                    server_map = future.result()
+                    interface_map.update(server_map)
+                except Exception as e:
+                    with self.print_lock:
+                        print(f"Error discovering interfaces on {server_ip}: {e}", file=sys.stderr)
         
         return interface_map
     
@@ -591,10 +632,11 @@ class NetworkDiscoveryRunner:
                             interface_results[test_key] = ("fail", latency)
                             status = f"{RED}FAIL{NC}"
                         
-                        # Thread-safe printing with color-coded latency
-                        latency_color = self._get_latency_color(latency)
-                        with self.print_lock:
-                            print(f"{server_ip} : {local_ip} -> {target_server_ip} : {target_ip} ... {status}, {latency_color}{latency}{NC}", file=sys.stderr)
+                        # Thread-safe printing with color-coded latency (if enabled)
+                        if self.show_ongoing:
+                            latency_color = self._get_latency_color(latency)
+                            with self.print_lock:
+                                print(f"{server_ip} : {local_ip} -> {target_server_ip} : {target_ip} ... {status}, {latency_color}{latency}{NC}", file=sys.stderr)
                         
                         current_target = None
                         current_output = []
@@ -663,10 +705,11 @@ class NetworkDiscoveryRunner:
                 interface_results[test_key] = ("fail", latency)
                 status = f"{RED}FAIL{NC}"
             
-            # Thread-safe printing with color-coded latency
-            latency_color = self._get_latency_color(latency)
-            with self.print_lock:
-                print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}, {latency_color}{latency}{NC}", file=sys.stderr)
+            # Thread-safe printing with color-coded latency (if enabled)
+            if self.show_ongoing:
+                latency_color = self._get_latency_color(latency)
+                with self.print_lock:
+                    print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}, {latency_color}{latency}{NC}", file=sys.stderr)
         
         return interface_results
     
@@ -1075,6 +1118,14 @@ Example usage:
         help='Test from only this specific server IP (useful for debugging a single server)'
     )
     
+    parser.add_argument(
+        '--show-ongoing-ping-results',
+        dest='show_ongoing',
+        action='store_true',
+        default=False,
+        help='Show ongoing ping results in real-time (default: only show final summary)'
+    )
+    
     args = parser.parse_args()
     
     # Determine servers list path
@@ -1104,7 +1155,8 @@ Example usage:
             sys.exit(1)
     
     # Initialize runner
-    runner = NetworkDiscoveryRunner(servers_list_path, net_discovery_script, args.ssh_user)
+    runner = NetworkDiscoveryRunner(servers_list_path, net_discovery_script, args.ssh_user, 
+                                    show_ongoing=args.show_ongoing)
     
     # Handle skip-discovery mode
     if args.skip_discovery:
