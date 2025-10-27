@@ -269,7 +269,7 @@ class NetworkDiscoveryRunner:
         
         return interface_map
     
-    def execute_ping_test(self, server_ip: str, local_ip: str, remote_ip: str) -> bool:
+    def execute_ping_test(self, server_ip: str, local_ip: str, remote_ip: str) -> Tuple[bool, str]:
         """
         Execute a ping test from a specific interface on a remote server to a target IP
         
@@ -279,7 +279,7 @@ class NetworkDiscoveryRunner:
             remote_ip: Target IP to ping
             
         Returns:
-            True if ping succeeds, False otherwise
+            Tuple of (success: bool, latency: str) e.g., (True, "0.234ms") or (False, ">1000ms")
         """
         try:
             # Execute ping via SSH with interface IP binding
@@ -292,7 +292,7 @@ class NetworkDiscoveryRunner:
                 "-o", "LogLevel=ERROR",
                 "-o", "ConnectTimeout=5",
                 f"{self.ssh_user}@{server_ip}",
-                f"ping -I {local_ip} -c 1 -W 1 {remote_ip} > /dev/null 2>&1"
+                f"ping -I {local_ip} -c 1 -W 1 {remote_ip} 2>&1"
             ]
             
             result = subprocess.run(
@@ -302,16 +302,43 @@ class NetworkDiscoveryRunner:
                 timeout=15
             )
             
-            return result.returncode == 0
+            if result.returncode == 0:
+                # Parse ping output to extract latency
+                # Look for patterns like "time=0.234 ms" or "time=0.234ms"
+                latency = self._parse_ping_latency(result.stdout)
+                return (True, latency)
+            else:
+                # Ping failed - timeout is 1 second based on -W 1
+                return (False, ">1000ms")
             
         except subprocess.TimeoutExpired:
-            return False
+            return (False, ">1000ms")
         except Exception as e:
             print(f"Warning: Error executing ping from {server_ip}:{local_ip} to {remote_ip}: {e}", file=sys.stderr)
-            return False
+            return (False, ">1000ms")
+    
+    def _parse_ping_latency(self, ping_output: str) -> str:
+        """
+        Parse ping output to extract latency
+        
+        Args:
+            ping_output: Output from ping command
+            
+        Returns:
+            Latency string like "0.234ms" or "N/A" if not found
+        """
+        import re
+        
+        # Look for "time=X.XXX ms" or "time=X.XXXms" pattern
+        match = re.search(r'time[=\s]+([\d.]+)\s*ms', ping_output, re.IGNORECASE)
+        if match:
+            latency_ms = float(match.group(1))
+            return f"{latency_ms:.2f}ms"
+        
+        return "N/A"
     
     def test_single_interface(self, server_ip: str, local_interface: str, local_ip: str,
-                             all_remote_ips: List[str], ip_to_server: Dict[str, str]) -> Dict[str, str]:
+                             all_remote_ips: List[str], ip_to_server: Dict[str, str]) -> Dict[str, Tuple[str, str]]:
         """
         Test all remote IPs from a single interface (used for interface-level parallelization)
         
@@ -323,7 +350,7 @@ class NetworkDiscoveryRunner:
             ip_to_server: Mapping of IP address to server IP
             
         Returns:
-            Dictionary of ping results for this interface
+            Dictionary mapping test_key to (result, latency) tuple
         """
         # ANSI color codes
         GREEN = '\033[0;32m'
@@ -347,19 +374,19 @@ class NetworkDiscoveryRunner:
             
             test_key = f"{server_ip}:{local_interface}:{remote_ip}"
             
-            # Execute ping test using source IP address
-            success = self.execute_ping_test(server_ip, local_ip, remote_ip)
+            # Execute ping test using source IP address - returns (success, latency)
+            success, latency = self.execute_ping_test(server_ip, local_ip, remote_ip)
             
             if success:
-                interface_results[test_key] = "pass"
+                interface_results[test_key] = ("pass", latency)
                 status = f"{GREEN}PASS{NC}"
             else:
-                interface_results[test_key] = "fail"
+                interface_results[test_key] = ("fail", latency)
                 status = f"{RED}FAIL{NC}"
             
-            # Thread-safe printing
+            # Thread-safe printing with latency
             with self.print_lock:
-                print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}", file=sys.stderr)
+                print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}, {latency}", file=sys.stderr)
         
         return interface_results
     
@@ -427,19 +454,19 @@ class NetworkDiscoveryRunner:
                     
                     test_key = f"{server_ip}:{local_interface}:{remote_ip}"
                     
-                    # Execute ping test using source IP address
-                    success = self.execute_ping_test(server_ip, local_ip, remote_ip)
+                    # Execute ping test using source IP address - returns (success, latency)
+                    success, latency = self.execute_ping_test(server_ip, local_ip, remote_ip)
                     
                     if success:
-                        server_results[test_key] = "pass"
+                        server_results[test_key] = ("pass", latency)
                         status = f"{GREEN}PASS{NC}"
                     else:
-                        server_results[test_key] = "fail"
+                        server_results[test_key] = ("fail", latency)
                         status = f"{RED}FAIL{NC}"
                     
-                    # Thread-safe printing
+                    # Thread-safe printing with latency
                     with self.print_lock:
-                        print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}", file=sys.stderr)
+                        print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}, {latency}", file=sys.stderr)
         
         return server_results
     
@@ -523,7 +550,8 @@ class NetworkDiscoveryRunner:
         
         # Calculate statistics
         total_tests = len(ping_results)
-        passed_tests = sum(1 for result in ping_results.values() if result == "pass")
+        passed_tests = sum(1 for result_data in ping_results.values() 
+                          if (result_data[0] if isinstance(result_data, tuple) else result_data) == "pass")
         
         print("\n" + "=" * 60, file=sys.stderr)
         print(f"Ping Tests Complete: {passed_tests}/{total_tests} passed", file=sys.stderr)
@@ -579,12 +607,12 @@ class NetworkDiscoveryRunner:
         print(f"\nTotal: {len(interface_map)} interfaces")
         print("=" * 80)
     
-    def print_ping_results(self, ping_results: Dict[str, str], interface_map: Dict[str, str]):
+    def print_ping_results(self, ping_results: Dict[str, Tuple[str, str]], interface_map: Dict[str, str]):
         """
-        Print the ping test results in a readable format with color coding
+        Print the ping test results in a readable format with color coding and latency
         
         Args:
-            ping_results: Dictionary mapping test keys to pass/fail results
+            ping_results: Dictionary mapping test keys to (result, latency) tuples
             interface_map: Dictionary mapping server_ip:interface to interface IP
         """
         # ANSI color codes
@@ -598,17 +626,11 @@ class NetworkDiscoveryRunner:
             server_ip = key.split(':', 1)[0]
             ip_to_server[ip_addr] = server_ip
         
-        # Also create full reverse mapping: interface_ip -> (server_ip, local_ip)
-        ip_to_full_info = {}
-        for key, ip_addr in interface_map.items():
-            server_ip = key.split(':', 1)[0]
-            ip_to_full_info[ip_addr] = (server_ip, ip_addr)
-        
-        print("\n" + "=" * 110)
+        print("\n" + "=" * 125)
         print("Full Mesh Ping Test Results Summary")
-        print("=" * 110)
-        print(f"{'Source Server : GPU IP':<35} | {'Target Server : GPU IP':<35} | {'Result':<15}")
-        print("-" * 110)
+        print("=" * 125)
+        print(f"{'Source Server : GPU IP':<35} | {'Target Server : GPU IP':<35} | {'Result':<15} | {'Latency':<15}")
+        print("-" * 125)
         
         passed = 0
         failed = 0
@@ -630,7 +652,14 @@ class NetworkDiscoveryRunner:
                 source_str = "Unknown"
                 target_str = "Unknown"
             
-            result = ping_results[test_key]
+            # Extract result and latency
+            result_data = ping_results[test_key]
+            if isinstance(result_data, tuple):
+                result, latency = result_data
+            else:
+                # Backward compatibility
+                result = result_data
+                latency = "N/A"
             
             if result == "pass":
                 result_colored = f"{GREEN}PASS{NC}"
@@ -639,9 +668,9 @@ class NetworkDiscoveryRunner:
                 result_colored = f"{RED}FAIL{NC}"
                 failed += 1
             
-            print(f"{source_str:<35} | {target_str:<35} | {result_colored}")
+            print(f"{source_str:<35} | {target_str:<35} | {result_colored:<24} | {latency:<15}")
         
-        print("=" * 110)
+        print("=" * 125)
         print(f"\nSummary: {passed} passed, {failed} failed out of {passed + failed} total tests")
         
         if failed == 0:
@@ -649,7 +678,7 @@ class NetworkDiscoveryRunner:
         else:
             print(f"{RED}Some ping tests failed! ✗{NC}")
         
-        print("=" * 110)
+        print("=" * 125)
 
 
 def main():
@@ -814,7 +843,8 @@ Example usage:
         runner.print_ping_results(ping_results, interface_map)
         
         # Exit with error code if any tests failed
-        failed_count = sum(1 for result in ping_results.values() if result == "fail")
+        failed_count = sum(1 for result_data in ping_results.values() 
+                          if (result_data[0] if isinstance(result_data, tuple) else result_data) == "fail")
         if failed_count > 0:
             sys.exit(1)
 
