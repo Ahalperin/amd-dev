@@ -337,6 +337,285 @@ class NetworkDiscoveryRunner:
         
         return "N/A"
     
+    def _get_latency_color(self, latency_str: str) -> str:
+        """
+        Get color code based on latency value
+        
+        Args:
+            latency_str: Latency string like "0.23ms" or ">1000ms"
+            
+        Returns:
+            ANSI color code
+        """
+        # Color codes
+        GREEN = '\033[0;32m'        # 0ms-1ms
+        ORANGE = '\033[0;33m'       # >1ms-5ms
+        OLIVE = '\033[38;5;58m'     # >5ms-10ms (dark yellow/olive)
+        LIGHT_RED = '\033[1;31m'    # >10ms-1000ms
+        RED = '\033[0;31m'          # >1000ms
+        NC = '\033[0m'
+        
+        # Handle special cases
+        if not latency_str or latency_str == "N/A":
+            return NC
+        
+        if latency_str.startswith(">"):
+            return RED  # Failed ping (>1000ms)
+        
+        # Parse numeric value
+        try:
+            latency_val = float(latency_str.replace("ms", ""))
+            
+            if latency_val <= 1.0:
+                return GREEN
+            elif latency_val <= 5.0:
+                return ORANGE
+            elif latency_val <= 10.0:
+                return OLIVE
+            elif latency_val <= 1000.0:
+                return LIGHT_RED
+            else:
+                return RED
+        except ValueError:
+            return NC
+    
+    def execute_batch_pings_to_server(self, source_server_ip: str, source_interface: str, source_ip: str,
+                                      target_server_ip: str, target_ips: List[str]) -> Dict[str, Tuple[bool, str]]:
+        """
+        Execute multiple pings from one source interface to multiple targets on one remote server
+        in a single SSH connection
+        
+        Args:
+            source_server_ip: IP of the server running the pings
+            source_interface: Name of source interface
+            source_ip: IP address of source interface
+            target_server_ip: IP of target server (for display)
+            target_ips: List of target IP addresses to ping
+            
+        Returns:
+            Dictionary mapping target_ip to (success, latency) tuple
+        """
+        import re
+        
+        if not target_ips:
+            return {}
+        
+        try:
+            # Build a compound command that runs all pings and captures results
+            # Each ping is followed by a marker with the exit code and target IP
+            ping_commands = []
+            for target_ip in target_ips:
+                # Run ping, save exit code immediately, then print markers
+                # Using a variable to ensure we capture the ping exit code, not echo's
+                ping_commands.append(
+                    f"echo '=== PING_START:{target_ip} ==='; "
+                    f"ping -I {source_ip} -c 1 -W 1 {target_ip} 2>&1; "
+                    f"ec=$?; "
+                    f"echo '=== PING_EXIT:{target_ip}:'$ec' ==='"
+                )
+            
+            # Join all commands with semicolons
+            batch_script = "; ".join(ping_commands)
+            
+            # Execute via SSH
+            ssh_cmd = [
+                "ssh",
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "UserKnownHostsFile=/dev/null",
+                "-o", "LogLevel=ERROR",
+                "-o", "ConnectTimeout=5",
+                f"{self.ssh_user}@{source_server_ip}",
+                batch_script
+            ]
+            
+            # Calculate timeout: 2 seconds per ping (generous)
+            timeout = max(30, len(target_ips) * 2)
+            
+            result = subprocess.run(
+                ssh_cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            
+            # Debug: print only critical SSH failures
+            if result.returncode != 0 and result.stderr and 'Connection refused' in result.stderr:
+                print(f"Warning: SSH connection to {source_server_ip} failed: {result.stderr[:100]}", file=sys.stderr)
+            
+            # Parse the output to extract results for each target
+            results = {}
+            current_target = None
+            current_output = []
+            
+            for line in result.stdout.split('\n'):
+                if '=== PING_START:' in line:
+                    # Start of a ping result
+                    match = re.search(r'PING_START:([\d.]+)', line)
+                    if match:
+                        current_target = match.group(1)
+                        current_output = []
+                elif '=== PING_EXIT:' in line:
+                    # End of a ping result
+                    match = re.search(r'PING_EXIT:([\d.]+):(\d+)', line)
+                    if match:
+                        target_ip = match.group(1)
+                        exit_code = int(match.group(2))
+                        
+                        if exit_code == 0:
+                            # Success - parse latency
+                            latency = self._parse_ping_latency('\n'.join(current_output))
+                            results[target_ip] = (True, latency)
+                        else:
+                            # Failed
+                            results[target_ip] = (False, ">1000ms")
+                        
+                        current_target = None
+                        current_output = []
+                elif current_target:
+                    # Part of ping output
+                    current_output.append(line)
+            
+            # Ensure all target IPs have results (in case parsing failed)
+            for target_ip in target_ips:
+                if target_ip not in results:
+                    results[target_ip] = (False, ">1000ms")
+            
+            return results
+            
+        except subprocess.TimeoutExpired:
+            # Timeout - mark all as failed
+            return {target_ip: (False, ">1000ms") for target_ip in target_ips}
+        except Exception as e:
+            print(f"Warning: Error executing batch pings from {source_server_ip}:{source_ip} to {target_server_ip}: {e}", file=sys.stderr)
+            return {target_ip: (False, ">1000ms") for target_ip in target_ips}
+    
+    def test_single_interface_batched(self, server_ip: str, local_interface: str, local_ip: str,
+                                      all_remote_ips: List[str], ip_to_server: Dict[str, str]) -> Dict[str, Tuple[str, str]]:
+        """
+        Test all remote IPs from a single interface using ONE batched SSH command
+        (Most efficient: 1 SSH per source interface, batching ALL remote pings)
+        
+        Args:
+            server_ip: IP address of the source server
+            local_interface: Name of the interface
+            local_ip: IP address of the interface
+            all_remote_ips: List of all remote IPs to test
+            ip_to_server: Mapping of IP address to server IP
+            
+        Returns:
+            Dictionary mapping test_key to (result, latency) tuple
+        """
+        import re
+        
+        # ANSI color codes
+        GREEN = '\033[0;32m'
+        RED = '\033[0;31m'
+        NC = '\033[0m'
+        
+        # Filter out same-server IPs and self
+        target_ips = []
+        for remote_ip in all_remote_ips:
+            if remote_ip == local_ip:
+                continue
+            
+            target_server_ip = ip_to_server.get(remote_ip, "Unknown")
+            if target_server_ip == server_ip:
+                continue
+            
+            target_ips.append(remote_ip)
+        
+        if not target_ips:
+            return {}
+        
+        try:
+            # Build ONE compound SSH command with ALL pings from this interface
+            ping_commands = []
+            for target_ip in target_ips:
+                ping_commands.append(
+                    f"echo '=== PING_START:{target_ip} ==='; "
+                    f"ping -I {local_ip} -c 1 -W 1 {target_ip} 2>&1; "
+                    f"ec=$?; "
+                    f"echo '=== PING_EXIT:{target_ip}:'$ec' ==='"
+                )
+            
+            # Join all commands with semicolons
+            batch_script = "; ".join(ping_commands)
+            
+            # Execute via ONE SSH connection
+            ssh_cmd = [
+                "ssh",
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "UserKnownHostsFile=/dev/null",
+                "-o", "LogLevel=ERROR",
+                "-o", "ConnectTimeout=5",
+                f"{self.ssh_user}@{server_ip}",
+                batch_script
+            ]
+            
+            # Calculate timeout: 2 seconds per ping (generous)
+            timeout = max(60, len(target_ips) * 2)
+            
+            result = subprocess.run(
+                ssh_cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            
+            # Parse the output to extract results for each target
+            interface_results = {}
+            current_target = None
+            current_output = []
+            
+            for line in result.stdout.split('\n'):
+                if '=== PING_START:' in line:
+                    match = re.search(r'PING_START:([\d.]+)', line)
+                    if match:
+                        current_target = match.group(1)
+                        current_output = []
+                elif '=== PING_EXIT:' in line:
+                    match = re.search(r'PING_EXIT:([\d.]+):(\d+)', line)
+                    if match:
+                        target_ip = match.group(1)
+                        exit_code = int(match.group(2))
+                        
+                        test_key = f"{server_ip}:{local_interface}:{target_ip}"
+                        target_server_ip = ip_to_server.get(target_ip, "Unknown")
+                        
+                        if exit_code == 0:
+                            latency = self._parse_ping_latency('\n'.join(current_output))
+                            interface_results[test_key] = ("pass", latency)
+                            status = f"{GREEN}PASS{NC}"
+                        else:
+                            latency = ">1000ms"
+                            interface_results[test_key] = ("fail", latency)
+                            status = f"{RED}FAIL{NC}"
+                        
+                        # Thread-safe printing with color-coded latency
+                        latency_color = self._get_latency_color(latency)
+                        with self.print_lock:
+                            print(f"{server_ip} : {local_ip} -> {target_server_ip} : {target_ip} ... {status}, {latency_color}{latency}{NC}", file=sys.stderr)
+                        
+                        current_target = None
+                        current_output = []
+                elif current_target:
+                    current_output.append(line)
+            
+            # Ensure all target IPs have results
+            for target_ip in target_ips:
+                test_key = f"{server_ip}:{local_interface}:{target_ip}"
+                if test_key not in interface_results:
+                    interface_results[test_key] = ("fail", ">1000ms")
+            
+            return interface_results
+            
+        except subprocess.TimeoutExpired:
+            print(f"Warning: Timeout testing from {server_ip}:{local_ip}", file=sys.stderr)
+            return {f"{server_ip}:{local_interface}:{ip}": ("fail", ">1000ms") for ip in target_ips}
+        except Exception as e:
+            print(f"Warning: Error testing from {server_ip}:{local_ip}: {e}", file=sys.stderr)
+            return {f"{server_ip}:{local_interface}:{ip}": ("fail", ">1000ms") for ip in target_ips}
+    
     def test_single_interface(self, server_ip: str, local_interface: str, local_ip: str,
                              all_remote_ips: List[str], ip_to_server: Dict[str, str]) -> Dict[str, Tuple[str, str]]:
         """
@@ -384,9 +663,10 @@ class NetworkDiscoveryRunner:
                 interface_results[test_key] = ("fail", latency)
                 status = f"{RED}FAIL{NC}"
             
-            # Thread-safe printing with latency
+            # Thread-safe printing with color-coded latency
+            latency_color = self._get_latency_color(latency)
             with self.print_lock:
-                print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}, {latency}", file=sys.stderr)
+                print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}, {latency_color}{latency}{NC}", file=sys.stderr)
         
         return interface_results
     
@@ -408,65 +688,28 @@ class NetworkDiscoveryRunner:
         """
         server_results = {}
         
-        if parallelize_interfaces and len(interfaces) > 1:
-            # Parallel execution by interface (for single-server testing)
-            with ThreadPoolExecutor(max_workers=len(interfaces)) as executor:
-                future_to_interface = {
-                    executor.submit(
-                        self.test_single_interface,
-                        server_ip,
-                        local_interface,
-                        local_ip,
-                        all_remote_ips,
-                        ip_to_server
-                    ): local_interface
-                    for local_interface, local_ip in interfaces
-                }
-                
-                for future in as_completed(future_to_interface):
-                    interface_name = future_to_interface[future]
-                    try:
-                        interface_results = future.result()
-                        server_results.update(interface_results)
-                    except Exception as e:
-                        print(f"Error testing interface {interface_name} on {server_ip}: {e}", file=sys.stderr)
-        else:
-            # Sequential execution by interface (for multi-server testing)
-            # ANSI color codes
-            GREEN = '\033[0;32m'
-            RED = '\033[0;31m'
-            NC = '\033[0m'
+        # Always use optimized batched approach with interface-level parallelization
+        # Each thread sends ONE SSH command with ALL pings from that interface
+        with ThreadPoolExecutor(max_workers=len(interfaces)) as executor:
+            future_to_interface = {
+                executor.submit(
+                    self.test_single_interface_batched,
+                    server_ip,
+                    local_interface,
+                    local_ip,
+                    all_remote_ips,
+                    ip_to_server
+                ): local_interface
+                for local_interface, local_ip in interfaces
+            }
             
-            # For each interface on this server
-            for local_interface, local_ip in interfaces:
-                # Ping all remote IPs (excluding own IP and GPUs on same server)
-                for remote_ip in all_remote_ips:
-                    if remote_ip == local_ip:
-                        # Skip pinging self
-                        continue
-                    
-                    # Get target server IP
-                    target_server_ip = ip_to_server.get(remote_ip, "Unknown")
-                    
-                    # Skip if target is on the same server (GPUs on same server use internal switch)
-                    if target_server_ip == server_ip:
-                        continue
-                    
-                    test_key = f"{server_ip}:{local_interface}:{remote_ip}"
-                    
-                    # Execute ping test using source IP address - returns (success, latency)
-                    success, latency = self.execute_ping_test(server_ip, local_ip, remote_ip)
-                    
-                    if success:
-                        server_results[test_key] = ("pass", latency)
-                        status = f"{GREEN}PASS{NC}"
-                    else:
-                        server_results[test_key] = ("fail", latency)
-                        status = f"{RED}FAIL{NC}"
-                    
-                    # Thread-safe printing with latency
-                    with self.print_lock:
-                        print(f"{server_ip} : {local_ip} -> {target_server_ip} : {remote_ip} ... {status}, {latency}", file=sys.stderr)
+            for future in as_completed(future_to_interface):
+                interface_name = future_to_interface[future]
+                try:
+                    interface_results = future.result()
+                    server_results.update(interface_results)
+                except Exception as e:
+                    print(f"Error testing interface {interface_name} on {server_ip}: {e}", file=sys.stderr)
         
         return server_results
     
@@ -507,7 +750,13 @@ class NetworkDiscoveryRunner:
                 print(f"Available servers: {', '.join(sorted(server_interfaces.keys()))}", file=sys.stderr)
                 return {}
             print(f"Testing from single server: {test_server}", file=sys.stderr)
-            print(f"Using interface-level parallelization ({len(server_interfaces[test_server])} interfaces)", file=sys.stderr)
+            num_interfaces = len(server_interfaces[test_server])
+            num_remote_ips = sum(len(interfaces) for srv, interfaces in server_interfaces.items() if srv != test_server)
+            total_ssh = num_interfaces
+            print(f"Using optimized batched SSH execution:", file=sys.stderr)
+            print(f"  • Total SSH commands: {total_ssh} (one per source interface)", file=sys.stderr)
+            print(f"  • Each SSH batches ~{num_remote_ips} pings to all remote interfaces", file=sys.stderr)
+            print(f"  • Total pings: {total_ssh * num_remote_ips}", file=sys.stderr)
             server_interfaces = {test_server: server_interfaces[test_server]}
             single_server_mode = True
         
@@ -519,7 +768,18 @@ class NetworkDiscoveryRunner:
             max_workers = len(server_interfaces)
         
         if not single_server_mode:
-            print(f"Testing {len(server_interfaces)} server(s) in parallel with {max_workers} workers", file=sys.stderr)
+            # Calculate total SSH commands for general case
+            total_interfaces = sum(len(interfaces) for interfaces in server_interfaces.values())
+            total_remote_ips = sum(len(interfaces) for srv, interfaces in server_interfaces.items())
+            total_pings = sum(
+                len(interfaces) * (total_remote_ips - len(interfaces))  # Each interface pings all remote interfaces
+                for interfaces in server_interfaces.values()
+            )
+            print(f"Using optimized batched SSH execution for {len(server_interfaces)} servers:", file=sys.stderr)
+            print(f"  • Total SSH commands: {total_interfaces} (one per source interface)", file=sys.stderr)
+            print(f"  • Each SSH batches pings to all remote interfaces", file=sys.stderr)
+            print(f"  • Parallel execution: {max_workers} servers, {len(server_interfaces.get(list(server_interfaces.keys())[0], []))} interfaces per server", file=sys.stderr)
+            print(f"  • Total pings: {total_pings}", file=sys.stderr)
         print("", file=sys.stderr)
         
         ping_results = {}
@@ -553,8 +813,28 @@ class NetworkDiscoveryRunner:
         passed_tests = sum(1 for result_data in ping_results.values() 
                           if (result_data[0] if isinstance(result_data, tuple) else result_data) == "pass")
         
+        # Calculate latency statistics (only for passed tests)
+        latencies = []
+        for result_data in ping_results.values():
+            if isinstance(result_data, tuple) and result_data[0] == "pass":
+                latency_str = result_data[1]
+                # Parse latency value (e.g., "0.23ms" -> 0.23)
+                if latency_str and latency_str != "N/A" and not latency_str.startswith(">"):
+                    try:
+                        latency_val = float(latency_str.replace("ms", ""))
+                        latencies.append(latency_val)
+                    except ValueError:
+                        pass
+        
         print("\n" + "=" * 60, file=sys.stderr)
         print(f"Ping Tests Complete: {passed_tests}/{total_tests} passed", file=sys.stderr)
+        
+        if latencies:
+            min_latency = min(latencies)
+            max_latency = max(latencies)
+            avg_latency = sum(latencies) / len(latencies)
+            print(f"Latency Stats: min={min_latency:.2f}ms, max={max_latency:.2f}ms, avg={avg_latency:.2f}ms", file=sys.stderr)
+        
         print("=" * 60, file=sys.stderr)
         
         return ping_results
@@ -668,10 +948,33 @@ class NetworkDiscoveryRunner:
                 result_colored = f"{RED}FAIL{NC}"
                 failed += 1
             
-            print(f"{source_str:<35} | {target_str:<35} | {result_colored:<24} | {latency:<15}")
+            # Color-code latency based on value
+            latency_color = self._get_latency_color(latency)
+            latency_colored = f"{latency_color}{latency}{NC}"
+            
+            print(f"{source_str:<35} | {target_str:<35} | {result_colored:<24} | {latency_colored:<24}")
         
         print("=" * 125)
         print(f"\nSummary: {passed} passed, {failed} failed out of {passed + failed} total tests")
+        
+        # Calculate latency statistics from passed tests
+        latencies = []
+        for result_data in ping_results.values():
+            if isinstance(result_data, tuple) and result_data[0] == "pass":
+                latency_str = result_data[1]
+                # Parse latency value (e.g., "0.23ms" -> 0.23)
+                if latency_str and latency_str != "N/A" and not latency_str.startswith(">"):
+                    try:
+                        latency_val = float(latency_str.replace("ms", ""))
+                        latencies.append(latency_val)
+                    except ValueError:
+                        pass
+        
+        if latencies:
+            min_latency = min(latencies)
+            max_latency = max(latencies)
+            avg_latency = sum(latencies) / len(latencies)
+            print(f"Latency Stats: min={min_latency:.2f}ms, max={max_latency:.2f}ms, avg={avg_latency:.2f}ms")
         
         if failed == 0:
             print(f"{GREEN}All ping tests passed! ✓{NC}")
