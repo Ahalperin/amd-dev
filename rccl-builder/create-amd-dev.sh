@@ -12,7 +12,7 @@ sudo usermod -aG video $USER
 
 # add aliases to bashrc if they don't already exist
 grep -q "alias c='clear'" ~/.bashrc || echo "alias c='clear'" >> ~/.bashrc
-grep -q "alias gits='git status'" ~/.bashrc || echo "alias gits='git status'" >> ~/.bashrc
+grep -q "alias gs='git status'" ~/.bashrc || echo "alias gs='git status'" >> ~/.bashrc
 source ~/.bashrc
 
 # install ompi-4.1.6 only if not already installed
