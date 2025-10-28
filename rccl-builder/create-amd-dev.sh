@@ -15,6 +15,18 @@ grep -q "alias c='clear'" ~/.bashrc || echo "alias c='clear'" >> ~/.bashrc
 grep -q "alias gits='git status'" ~/.bashrc || echo "alias gits='git status'" >> ~/.bashrc
 source ~/.bashrc
 
+# install ompi-4.1.6 only if not already installed
+if [ ! -d /opt/ompi-4.1.6 ]; then
+    cd ~/
+    wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz
+    tar -zxf openmpi-4.1.6.tar.gz
+    cd openmpi-4.1.6
+    sudo ./configure --prefix=/opt/ompi-4.1.6
+    make -j16 install
+    cd ..
+    rm -rf openmpi-4.1.6 openmpi-4.1.6.tar.gz
+fi
+
 # create rccl-builder docker container
 # cd ~/amd-dev/rccl-builder
 # ./build_rccl_builder
@@ -73,5 +85,5 @@ cd /home/dn/amd-dev/amd/rccl && sudo rm -rf build && ./install.sh -l --prefix bu
 cd /home/dn/amd-dev/amd/rccl-tests/ && sudo rm -rf build && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/home/dn/amd-dev/amd/rccl/;/opt/ompi-4.1.6/build/ompi/" -DGPU_TARGETS=gfx950 .. && make -j6
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
-cd /home/dn/amd-dev/amd/amd-anp && sudo make RCCL_HOME=/home/dn/amd-dev/amd/rccl/ MPI_INCLUDE=/opt/ompi-4.1.6/build/ompi/include/ MPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/ ROCM_PATH=/opt/rocm-7.0.1/
+cd /home/dn/amd-dev/amd/amd-anp && sudo make RCCL_HOME=/home/dn/amd-dev/amd/rccl/ MPI_INCLUDE=/opt/ompi-4.1.6/include/ MPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/ ROCM_PATH=/opt/rocm-7.0.1/
 cd /home/dn/amd-dev/amd/amd-anp && sudo make RCCL_HOME=/home/dn/amd-dev/amd/rccl/ ROCM_PATH=/opt/rocm-7.0.1/ install
