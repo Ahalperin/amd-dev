@@ -20,7 +20,7 @@ import threading
 
 class NetworkDiscoveryRunner:
     def __init__(self, servers_list_path: str, net_discovery_script: str, ssh_user: str = "dn",
-                 show_ongoing: bool = False):
+                 show_ongoing: bool = False, open_metrics: bool = False):
         """
         Initialize the network discovery runner
         
@@ -29,11 +29,13 @@ class NetworkDiscoveryRunner:
             net_discovery_script: Path to the net-discovery.sh script
             ssh_user: SSH username for remote access (default: "dn")
             show_ongoing: Show ongoing ping results in real-time (default: False)
+            open_metrics: Output results in OpenMetrics format (default: False)
         """
         self.servers_list_path = servers_list_path
         self.net_discovery_script = net_discovery_script
         self.ssh_user = ssh_user
         self.show_ongoing = show_ongoing
+        self.open_metrics = open_metrics
         self.interface_map: Dict[str, str] = {}
         self.print_lock = threading.Lock()  # For thread-safe printing
         
@@ -930,6 +932,90 @@ class NetworkDiscoveryRunner:
         print(f"\nTotal: {len(interface_map)} interfaces")
         print("=" * 80)
     
+    def print_open_metrics_format(self, ping_results: Dict[str, Tuple[str, str]], interface_map: Dict[str, str]):
+        """
+        Print ping test results in OpenMetrics format
+        
+        Args:
+            ping_results: Dictionary mapping test keys to (result, latency) tuples
+            interface_map: Dictionary mapping server_ip:interface to interface IP
+        """
+        # Create reverse mapping: interface_ip -> server_ip
+        ip_to_server = {}
+        for key, ip_addr in interface_map.items():
+            server_ip = key.split(':', 1)[0]
+            ip_to_server[ip_addr] = server_ip
+        
+        # Statistics for summary
+        total_tests = 0
+        passed_tests = 0
+        failed_tests = 0
+        latencies = []
+        
+        print("\n# HELP ping_test GPU network connectivity test results")
+        print("# TYPE ping_test gauge")
+        
+        for test_key in sorted(ping_results.keys()):
+            parts = test_key.rsplit(':', 2)
+            if len(parts) == 3:
+                server_ip, interface, remote_ip = parts
+                # Get local IP from interface_map
+                local_key = f"{server_ip}:{interface}"
+                local_ip = interface_map.get(local_key, "Unknown")
+                
+                # Get target server IP
+                target_server_ip = ip_to_server.get(remote_ip, "Unknown")
+            else:
+                continue
+            
+            # Extract result and latency
+            result_data = ping_results[test_key]
+            if isinstance(result_data, tuple):
+                result, latency = result_data
+            else:
+                result = result_data
+                latency = "N/A"
+            
+            # Format status
+            status = "PASS" if result == "pass" else "FAIL"
+            
+            # Update statistics
+            total_tests += 1
+            if result == "pass":
+                passed_tests += 1
+                # Extract numeric latency value for passed tests
+                if latency and latency != "N/A" and not latency.startswith(">"):
+                    try:
+                        latency_val = float(latency.replace("ms", ""))
+                        latencies.append(latency_val)
+                    except ValueError:
+                        pass
+            else:
+                failed_tests += 1
+            
+            # Format as OpenMetrics
+            print(f'ping_test{{src_srv="{server_ip}", src_gpu="{local_ip}", '
+                  f'dst_srv="{target_server_ip}", dst_gpu="{remote_ip}"}} '
+                  f'status="{status}", latency="{latency}"')
+        
+        # Calculate latency statistics
+        if latencies:
+            min_latency = f"{min(latencies):.2f}ms"
+            max_latency = f"{max(latencies):.2f}ms"
+            avg_latency = f"{sum(latencies) / len(latencies):.2f}ms"
+        else:
+            min_latency = "N/A"
+            max_latency = "N/A"
+            avg_latency = "N/A"
+        
+        # Print summary metric
+        print()
+        print("# HELP ping_tests_summary Summary statistics for GPU network connectivity tests")
+        print("# TYPE ping_tests_summary gauge")
+        print(f'ping_tests_summary{{total="{total_tests}", passed="{passed_tests}", '
+              f'failed="{failed_tests}", min_latency="{min_latency}", '
+              f'max_latency="{max_latency}", avg_latency="{avg_latency}"}}')
+    
     def print_ping_results(self, ping_results: Dict[str, Tuple[str, str]], interface_map: Dict[str, str]):
         """
         Print the ping test results in a readable format with color coding and latency
@@ -938,6 +1024,11 @@ class NetworkDiscoveryRunner:
             ping_results: Dictionary mapping test keys to (result, latency) tuples
             interface_map: Dictionary mapping server_ip:interface to interface IP
         """
+        # If OpenMetrics format requested, use that instead
+        if self.open_metrics:
+            self.print_open_metrics_format(ping_results, interface_map)
+            return
+        
         # ANSI color codes
         GREEN = '\033[0;32m'
         RED = '\033[0;31m'
@@ -1126,6 +1217,14 @@ Example usage:
         help='Show ongoing ping results in real-time (default: only show final summary)'
     )
     
+    parser.add_argument(
+        '--open-metrics-format',
+        dest='open_metrics',
+        action='store_true',
+        default=False,
+        help='Output results in OpenMetrics format (for Prometheus/monitoring systems)'
+    )
+    
     args = parser.parse_args()
     
     # Determine servers list path
@@ -1156,7 +1255,7 @@ Example usage:
     
     # Initialize runner
     runner = NetworkDiscoveryRunner(servers_list_path, net_discovery_script, args.ssh_user, 
-                                    show_ongoing=args.show_ongoing)
+                                    show_ongoing=args.show_ongoing, open_metrics=args.open_metrics)
     
     # Handle skip-discovery mode
     if args.skip_discovery:
