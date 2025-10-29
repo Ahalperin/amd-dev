@@ -50,3 +50,4 @@ export NCCL_DEBUG=INFO
 - Full documentation: [README.md](./README.md)
 - Having issues? [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 - Verify setup: `../net-discovery.sh`
+
