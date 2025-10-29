@@ -27,10 +27,7 @@ if [ ! -d /opt/ompi-4.1.6 ]; then
     sudo rm -rf openmpi-4.1.6 openmpi-4.1.6.tar.gz
 fi
 
-# create rccl-builder docker container
-# cd ~/amd-dev/rccl-builder
-# ./build_rccl_builder
-
+# clone amd repos & checkout to specific branches
 cd ~
 git clone https://github.com/Ahalperin/amd-dev.git
 cd ~/amd-dev
@@ -45,45 +42,15 @@ cd ~/amd/rccl/
 git checkout drop/2025-08
 git switch -c drop/2025-08
 
-# checkout amd-anp to drop/2025-08
+# checkout amd-anp to v1.1.0-5
 cd ~/amd-dev/amd/amd-anp
 git checkout tags/v1.1.0-5
 git switch -c v1.1.0-5
 
-# cd ~/amd-dev
-# docker run -d \
-#   --name rccl-builder \
-#   --workdir /workspace \
-#   -v /opt/rocm-7.0.1:/opt/rocm-7.0.1 \
-#   -v $(pwd)/amd:/workspace \
-#   -v $(pwd)/tools:/tools \
-#   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-#   -e DISPLAY=$DISPLAY \
-#   -e USER_ID=$(id -u) \
-#   -e GROUP_ID=$(id -g) \
-#   --device /dev/kfd \
-#   --device /dev/dri \
-#   --security-opt seccomp=unconfined \
-#   --security-opt apparmor=unconfined \
-#   --shm-size=512m \
-#   --privileged \
-#   --network=host \
-#   --pid=host \
-#   --ipc=host \
-#   -v /dev:/dev \
-#   -v /sys:/sys:ro \
-#   -v /proc:/proc \
-#   rccl-builder:latest \
-#   tail -f /dev/null
-
-
 # build rccl & rccl-tests
-# docker exec -it rccl-builder bash -c "cd /workspace/rccl && ROCM_PATH=/opt/rocm-7.0.1 ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel"
-# docker exec -it rccl-builder bash -c 'cd /workspace/rccl-tests/ && mkdir -p build && cd build && ROCM_PATH=/opt/rocm-7.0.1 cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/home/dn/amd-dev/amd/rccl/install;${MPI_INSTALL_PREFIX}" -DGPU_TARGETS=gfx950 .. && make -j6'
-
 cd /home/dn/amd-dev/amd/rccl && sudo rm -rf build && ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel
 cd /home/dn/amd-dev/amd/rccl-tests/ && sudo rm -rf build && mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=ON -DCMAKE_PREFIX_PATH="/home/dn/amd-dev/amd/rccl/;/opt/ompi-4.1.6/" -DGPU_TARGETS=gfx950 .. && make -j6
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
-cd /home/dn/amd-dev/amd/amd-anp && sudo make RCCL_HOME=/home/dn/amd-dev/amd/rccl/ MPI_INCLUDE=/opt/ompi-4.1.6/include/ MPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/ ROCM_PATH=/opt/rocm-7.0.1/
+cd /home/dn/amd-dev/amd/amd-anp && sudo rm -rf build &&sudo make RCCL_HOME=/home/dn/amd-dev/amd/rccl/ MPI_INCLUDE=/opt/ompi-4.1.6/include/ MPI_LIB_PATH=/opt/ompi-4.1.6/lib/ ROCM_PATH=/opt/rocm-7.0.1/
 cd /home/dn/amd-dev/amd/amd-anp && sudo make RCCL_HOME=/home/dn/amd-dev/amd/rccl/ ROCM_PATH=/opt/rocm-7.0.1/ install
