@@ -94,7 +94,7 @@ mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp8
 
 mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.nccl_debug.log NCCL_TOPO_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.topo.xml NCCL_GRAPH_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.graph.xml NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_IB_GID_INDEX=1 NCCL_SOCKET_IFNAME=enp81s0f1np1 LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128000 -e 8000000000 -f 2 -g 1"
 
-mpirun -H 172.30.160.145:8 -np 8 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
+mpirun -H 172.30.160.150:8 -np 8 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
 bash -c " \
 NCCL_MIN_NCHANNELS=64 \
 NCCL_MAX_NCHANNELS=64 \
@@ -102,7 +102,6 @@ RCCL_CUMEM_ENABLE=0 \
 NCCL_CUMEM_ENABLE=0 \
 NCCL_IB_PCI_RELAXED_ORDERING=0 \
 NCCL_IB_QPS_PER_CONNECTION=1 \
-NCCL_TOPO_DUMP_FILE=system.txt \
 HSA_NO_SCRATCH_RECLAIM=1 \
 NCCL_GDRCOPY_ENABLE=0 \
 NCCL_IB_TC=104 \
@@ -115,60 +114,10 @@ NCCL_IB_USE_INLINE=1 \
 NCCL_GDR_FLUSH_DISABLE=1 \
 RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
 NCCL_DEBUG_SUBSYS=GRAPH,ALL \
-NCCL_IB_GID_INDEX=1 \
-NCCL_SOCKET_IFNAME=enp81s0f1np1 \
-UCX_NET_DEVICES=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
-NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
-/home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1G -e 8G -f 2 -g 1"
-
-mpirun -H 172.30.160.145:8,172.30.160.150:8 -np 16 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
-bash -c " \
-NCCL_MIN_NCHANNELS=64 \
-NCCL_MAX_NCHANNELS=64 \
-RCCL_CUMEM_ENABLE=0 \
-NCCL_CUMEM_ENABLE=0 \
-NCCL_IB_PCI_RELAXED_ORDERING=0 \
-NCCL_IB_QPS_PER_CONNECTION=1 \
-NCCL_TOPO_DUMP_FILE=system.txt \
-HSA_NO_SCRATCH_RECLAIM=1 \
-NCCL_GDRCOPY_ENABLE=0 \
-NCCL_IB_TC=104 \
-NCCL_IB_FIFO_TC=192 \
-NCCL_IGNORE_CPU_AFFINITY=1 \
-RCCL_LL128_FORCE_ENABLE=1 \
-NCCL_PXN_DISABLE=0 \
-NET_OPTIONAL_RECV_COMPLETION=1 \
-NCCL_IB_USE_INLINE=1 \
-NCCL_GDR_FLUSH_DISABLE=1 \
-RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
-NCCL_DEBUG_SUBSYS=GRAPH,ALL \
-NCCL_IB_GID_INDEX=1 \
-NCCL_SOCKET_IFNAME=enp81s0f1np1 \
-UCX_NET_DEVICES=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
-NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
-/home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1G -e 8G -f 2 -g 1"
-
-mpirun -H 172.30.160.145:8,172.30.160.150:8 -np 16 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
-bash -c " \
-NCCL_MIN_NCHANNELS=64 \
-NCCL_MAX_NCHANNELS=64 \
-RCCL_CUMEM_ENABLE=0 \
-NCCL_CUMEM_ENABLE=0 \
-NCCL_IB_PCI_RELAXED_ORDERING=0 \
-NCCL_IB_QPS_PER_CONNECTION=1 \
-NCCL_TOPO_DUMP_FILE=system.txt \
-HSA_NO_SCRATCH_RECLAIM=1 \
-NCCL_GDRCOPY_ENABLE=0 \
-NCCL_IB_TC=104 \
-NCCL_IB_FIFO_TC=192 \
-NCCL_IGNORE_CPU_AFFINITY=1 \
-RCCL_LL128_FORCE_ENABLE=1 \
-NCCL_PXN_DISABLE=0 \
-NET_OPTIONAL_RECV_COMPLETION=1 \
-NCCL_IB_USE_INLINE=1 \
-NCCL_GDR_FLUSH_DISABLE=1 \
-RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
-NCCL_DEBUG_SUBSYS=GRAPH,ALL \
+NCCL_DEBUG=INFO \
+NCCL_DEBUG_FILE=rccl.debug.log \
+NCCL_TOPO_DUMP_FILE=rccl.topo.log \
+NCCL_GRAPH_DUMP_FILE=rccl.graph.log \
 NCCL_IB_GID_INDEX=1 \
 NCCL_SOCKET_IFNAME=enp81s0f1np1 \
 UCX_NET_DEVICES=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
@@ -176,26 +125,122 @@ NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:
 LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/home/dn/amd-dev/amd/amd-anp/build:/usr/local/lib: \
 /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1G -e 8G -f 2 -g 1"
 
+mpirun -H 172.30.160.145:8,172.30.160.150:8 -np 16 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
+bash -c " \
+NCCL_MIN_NCHANNELS=64 \
+NCCL_MAX_NCHANNELS=64 \
+RCCL_CUMEM_ENABLE=0 \
+NCCL_CUMEM_ENABLE=0 \
+NCCL_IB_PCI_RELAXED_ORDERING=0 \
+NCCL_IB_QPS_PER_CONNECTION=1 \
+HSA_NO_SCRATCH_RECLAIM=1 \
+NCCL_GDRCOPY_ENABLE=0 \
+NCCL_IB_TC=104 \
+NCCL_IB_FIFO_TC=192 \
+NCCL_IGNORE_CPU_AFFINITY=1 \
+RCCL_LL128_FORCE_ENABLE=1 \
+NCCL_PXN_DISABLE=0 \
+NET_OPTIONAL_RECV_COMPLETION=1 \
+NCCL_IB_USE_INLINE=1 \
+NCCL_GDR_FLUSH_DISABLE=1 \
+RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
+NCCL_DEBUG_SUBSYS=GRAPH,ALL \
+NCCL_DEBUG=INFO \
+NCCL_DEBUG_FILE=rccl.debug.log \
+NCCL_TOPO_DUMP_FILE=rccl.topo.log \
+NCCL_GRAPH_DUMP_FILE=rccl.graph.log \
+NCCL_IB_GID_INDEX=1 \
+NCCL_SOCKET_IFNAME=enp81s0f1np1 \
+UCX_NET_DEVICES=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+/home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1G -e 8G -f 2 -g 1"
+
+mpirun -H 172.30.160.145:8,172.30.160.150:8 -np 16 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
+bash -c " \
+NCCL_MIN_NCHANNELS=64 \
+NCCL_MAX_NCHANNELS=64 \
+RCCL_CUMEM_ENABLE=0 \
+NCCL_CUMEM_ENABLE=0 \
+NCCL_IB_PCI_RELAXED_ORDERING=0 \
+NCCL_IB_QPS_PER_CONNECTION=1 \
+HSA_NO_SCRATCH_RECLAIM=1 \
+NCCL_GDRCOPY_ENABLE=0 \
+NCCL_IB_TC=104 \
+NCCL_IB_FIFO_TC=192 \
+NCCL_IGNORE_CPU_AFFINITY=1 \
+RCCL_LL128_FORCE_ENABLE=1 \
+NCCL_PXN_DISABLE=0 \
+NET_OPTIONAL_RECV_COMPLETION=1 \
+NCCL_IB_USE_INLINE=1 \
+NCCL_GDR_FLUSH_DISABLE=1 \
+RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
+NCCL_DEBUG_SUBSYS=GRAPH,ALL \
+NCCL_DEBUG=TRACE \
+NCCL_DEBUG_FILE=rccl.debug.log \
+NCCL_TOPO_DUMP_FILE=rccl.topo.log \
+NCCL_GRAPH_DUMP_FILE=rccl.graph.log \
+NCCL_IB_GID_INDEX=1 \
+NCCL_SOCKET_IFNAME=enp81s0f1np1 \
+UCX_NET_DEVICES=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/home/dn/amd-dev/amd/amd-anp/build:/usr/local/lib: \
+/home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1G -e 8G -f 2 -g 1"
+
+mpirun -H 172.30.160.145:8,172.30.160.150:8 -np 16 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
+bash -c " \
+NCCL_MIN_NCHANNELS=64 \
+NCCL_MAX_NCHANNELS=64 \
+RCCL_CUMEM_ENABLE=0 \
+NCCL_CUMEM_ENABLE=0 \
+NCCL_IB_PCI_RELAXED_ORDERING=0 \
+NCCL_IB_QPS_PER_CONNECTION=1 \
+HSA_NO_SCRATCH_RECLAIM=1 \
+NCCL_GDRCOPY_ENABLE=0 \
+NCCL_IB_TC=104 \
+NCCL_IB_FIFO_TC=192 \
+NCCL_IGNORE_CPU_AFFINITY=1 \
+RCCL_LL128_FORCE_ENABLE=1 \
+NCCL_PXN_DISABLE=0 \
+NET_OPTIONAL_RECV_COMPLETION=1 \
+NCCL_IB_USE_INLINE=1 \
+NCCL_GDR_FLUSH_DISABLE=1 \
+RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
+NCCL_DEBUG_SUBSYS=GRAPH,ALL \
+NCCL_DEBUG=INFO \
+NCCL_DEBUG_FILE=rccl.debug.log \
+NCCL_TOPO_DUMP_FILE=rccl.topo.log \
+NCCL_GRAPH_DUMP_FILE=rccl.graph.log \
+NCCL_IB_GID_INDEX=1 \
+NCCL_SOCKET_IFNAME=enp81s0f1np1 \
+UCX_NET_DEVICES=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+LD_LIBRARY_PATH=/usr/local/lib: \
+/home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1G -e 8G -f 2 -g 1"
+
 #
 # latest Arik runs 28/10
 #
-mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-to numa \
+mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 \
+--bind-to numa \
+--mca oob_tcp_if_include enp81s0f1np1 \
+--mca btl_tcp_if_include enp81s0f1np1 \
 -x NCCL_IB_GID_INDEX=1 \
 -x NCCL_GDR_FLUSH_DISABLE=1 \
 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
 -x NCCL_GDRCOPY_ENABLE=0 \
 -x PATH=/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin \
 -x LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/home/dn/amd-dev/amd/amd-anp/build:/usr/local/lib: \
+-x LD_PRELOAD=/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so \
 -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
---mca oob_tcp_if_include enp81s0f1np1 \
---mca btl_tcp_if_include enp81s0f1np1 \
 -x NCCL_IB_QPS_PER_CONNECTION=1 \
--x NCCL_TOPO_DUMP_FILE=/tmp/system_run2.txt \
 -x HSA_NO_SCRATCH_RECLAIM=1 \
 -x NCCL_IB_TC=104 \
 -x NCCL_IB_FIFO_TC=192 \
 -x NCCL_IGNORE_CPU_AFFINITY=1 \
 -x NCCL_DEBUG=INFO \
+-x NCCL_DEBUG_FILE=rccl.debug.log \
+-x NCCL_TOPO_DUMP_FILE=rccl.topo.log \
+-x NCCL_GRAPH_DUMP_FILE=rccl.graph.log \
 -x NET_OPTIONAL_RECV_COMPLETION=1 \
 -x NCCL_IB_USE_INLINE=1 \
 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 \
@@ -203,49 +248,12 @@ mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-t
 -x NCCL_PXN_DISABLE=0 \
 -x RCCL_LL128_FORCE_ENABLE=1  \
 -x NCCL_ALGO=RING \
--x LD_PRELOAD=/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so -x NCCL_BUFFSIZE=1194304 /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
-# Collective test starting: all_reduce_perf
-# nThread 1 nGpus 1 minBytes 268435456 maxBytes 268435456 step: 2(factor) warmup iters: 5 iters: 20 agg iters: 1 validation: 1 graph: 0
-#
-rccl-tests: Version Unknown
-# Using devices
-#  Rank  0 Group  0 Pid 1026113 on amd-mi355x-8 device  0 [0000:05:00] AMD Instinct MI355X
-#  Rank  1 Group  0 Pid 1026114 on amd-mi355x-8 device  1 [0000:15:00] AMD Instinct MI355X
-#  Rank  2 Group  0 Pid 1026115 on amd-mi355x-8 device  2 [0000:65:00] AMD Instinct MI355X
-#  Rank  3 Group  0 Pid 1026116 on amd-mi355x-8 device  3 [0000:75:00] AMD Instinct MI355X
-#  Rank  4 Group  0 Pid 1026117 on amd-mi355x-8 device  4 [0000:85:00] AMD Instinct MI355X
-#  Rank  5 Group  0 Pid 1026118 on amd-mi355x-8 device  5 [0000:95:00] AMD Instinct MI355X
-#  Rank  6 Group  0 Pid 1026119 on amd-mi355x-8 device  6 [0000:e5:00] AMD Instinct MI355X
-#  Rank  7 Group  0 Pid 1026120 on amd-mi355x-8 device  7 [0000:f5:00] AMD Instinct MI355X
-#  Rank  8 Group  0 Pid 457546 on amd-mi355x-9 device  0 [0000:05:00] AMD Instinct MI355X
-#  Rank  9 Group  0 Pid 457547 on amd-mi355x-9 device  1 [0000:15:00] AMD Instinct MI355X
-#  Rank 10 Group  0 Pid 457548 on amd-mi355x-9 device  2 [0000:65:00] AMD Instinct MI355X
-#  Rank 11 Group  0 Pid 457549 on amd-mi355x-9 device  3 [0000:75:00] AMD Instinct MI355X
-#  Rank 12 Group  0 Pid 457550 on amd-mi355x-9 device  4 [0000:85:00] AMD Instinct MI355X
-#  Rank 13 Group  0 Pid 457552 on amd-mi355x-9 device  5 [0000:95:00] AMD Instinct MI355X
-#  Rank 14 Group  0 Pid 457553 on amd-mi355x-9 device  6 [0000:e5:00] AMD Instinct MI355X
-#  Rank 15 Group  0 Pid 457554 on amd-mi355x-9 device  7 [0000:f5:00] AMD Instinct MI355X
-RCCL version : 2.26.6-Unknown
-HIP version  : 7.0.51831-7c9236b16
-ROCm version : 7.0.2.0-56-9428210
-Hostname     : amd-mi355x-8
-Librccl path : /home/dn/amd-dev/amd/rccl/build/release/librccl.so
-#
-#                                                              out-of-place                       in-place
-#       size         count      type   redop    root     time   algbw   busbw #wrong     time   algbw   busbw #wrong
-#        (B)    (elements)                               (us)  (GB/s)  (GB/s)            (us)  (GB/s)  (GB/s)
-   268435456      67108864     float     sum      -1   1846.4  145.38  272.59      0   1847.4  145.31  272.45      0
-# Errors with asterisks indicate errors that have exceeded the maximum threshold.
-# Out of bounds values : 0 OK
-# Avg bus bandwidth    : 272.522
-#
-# Collective test concluded: all_reduce_perf
-
+-x NCCL_BUFFSIZE=1194304 \
+/home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
 
 #
 # latest Arik runs 28/10
 #
-
 mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-to numa \
 -x NCCL_IB_GID_INDEX=1 \
 -x NCCL_GDR_FLUSH_DISABLE=1 \
@@ -272,50 +280,8 @@ mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-t
 -x LD_PRELOAD=/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so \
 -x NCCL_BUFFSIZE=1194304 \
 /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
-# Collective test starting: all_reduce_perf
-# nThread 1 nGpus 1 minBytes 1048576 maxBytes 268435456 step: 2(factor) warmup iters: 5 iters: 20 agg iters: 1 validation: 1 graph: 0
-#
-rccl-tests: Version Unknown
-# Using devices
-#  Rank  0 Group  0 Pid 1028794 on amd-mi355x-8 device  0 [0000:05:00] AMD Instinct MI355X
-#  Rank  1 Group  0 Pid 1028795 on amd-mi355x-8 device  1 [0000:15:00] AMD Instinct MI355X
-#  Rank  2 Group  0 Pid 1028796 on amd-mi355x-8 device  2 [0000:65:00] AMD Instinct MI355X
-#  Rank  3 Group  0 Pid 1028797 on amd-mi355x-8 device  3 [0000:75:00] AMD Instinct MI355X
-#  Rank  4 Group  0 Pid 1028798 on amd-mi355x-8 device  4 [0000:85:00] AMD Instinct MI355X
-#  Rank  5 Group  0 Pid 1028799 on amd-mi355x-8 device  5 [0000:95:00] AMD Instinct MI355X
-#  Rank  6 Group  0 Pid 1028800 on amd-mi355x-8 device  6 [0000:e5:00] AMD Instinct MI355X
-#  Rank  7 Group  0 Pid 1028801 on amd-mi355x-8 device  7 [0000:f5:00] AMD Instinct MI355X
-#  Rank  8 Group  0 Pid 457830 on amd-mi355x-9 device  0 [0000:05:00] AMD Instinct MI355X
-#  Rank  9 Group  0 Pid 457831 on amd-mi355x-9 device  1 [0000:15:00] AMD Instinct MI355X
-#  Rank 10 Group  0 Pid 457832 on amd-mi355x-9 device  2 [0000:65:00] AMD Instinct MI355X
-#  Rank 11 Group  0 Pid 457833 on amd-mi355x-9 device  3 [0000:75:00] AMD Instinct MI355X
-#  Rank 12 Group  0 Pid 457834 on amd-mi355x-9 device  4 [0000:85:00] AMD Instinct MI355X
-#  Rank 13 Group  0 Pid 457835 on amd-mi355x-9 device  5 [0000:95:00] AMD Instinct MI355X
-#  Rank 14 Group  0 Pid 457836 on amd-mi355x-9 device  6 [0000:e5:00] AMD Instinct MI355X
-#  Rank 15 Group  0 Pid 457837 on amd-mi355x-9 device  7 [0000:f5:00] AMD Instinct MI355X
-RCCL version : 2.26.6-Unknown
-HIP version  : 7.0.51831-7c9236b16
-ROCm version : 7.0.2.0-56-9428210
-Hostname     : amd-mi355x-8
-Librccl path : /home/dn/amd-dev/amd/rccl/build/release/librccl.so
-#
-#                                                              out-of-place                       in-place
-#       size         count      type   redop    root     time   algbw   busbw #wrong     time   algbw   busbw #wrong
-#        (B)    (elements)                               (us)  (GB/s)  (GB/s)            (us)  (GB/s)  (GB/s)
-     1048576        262144     float     sum      -1    401.8    2.61    4.89      0    368.6    2.84    5.33      0
-     2097152        524288     float     sum      -1    366.3    5.72   10.73      0    364.9    5.75   10.78      0
-     4194304       1048576     float     sum      -1    365.2   11.48   21.53      0    365.8   11.46   21.50      0
-     8388608       2097152     float     sum      -1    364.4   23.02   43.17      0    375.0   22.37   41.94      0
-    16777216       4194304     float     sum      -1    370.8   45.25   84.83      0    374.7   44.77   83.95      0
-    33554432       8388608     float     sum      -1   1019.8   32.90   61.69      0   1008.2   33.28   62.40      0
-    67108864      16777216     float     sum      -1   1038.2   64.64  121.20      0   1038.3   64.63  121.18      0
-   134217728      33554432     float     sum      -1   1143.5  117.37  220.08      0   1142.3  117.50  220.32      0
-   268435456      67108864     float     sum      -1   1825.0  147.08  275.78      0   1837.9  146.05  273.85      0
-# Errors with asterisks indicate errors that have exceeded the maximum threshold.
-# Out of bounds values : 0 OK
-# Avg bus bandwidth    : 93.6197
-#
-# Collective test concluded: all_reduce_perf
+
+/usr/bin/mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-to numa -x NCCL_IB_GID_INDEX=1 -x NCCL_GDR_FLUSH_DISABLE=1 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 -x NCCL_GDRCOPY_ENABLE=0 -x LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/usr/local/lib: -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 -x NCCL_DMABUF_ENABLE=0 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -x NCCL_IB_QPS_PER_CONNECTION=1 -x NCCL_TOPO_DUMP_FILE=/tmp/system_run2.txt -x HSA_NO_SCRATCH_RECLAIM=1 -x NCCL_IB_TC=104 -x NCCL_IB_FIFO_TC=192 -x NCCL_IGNORE_CPU_AFFINITY=1 -x NCCL_DEBUG=VERSION -x NET_OPTIONAL_RECV_COMPLETION=1 -x NCCL_IB_USE_INLINE=1 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 -x IONIC_LOCKFREE=all -x NCCL_PXN_DISABLE=0 -x RCCL_DISABLE_RAIL_TREES=1 -x NCCL_WORK_FIFO_BYTES=17179869184  /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 16 -e 16G -f 2 -g 1 -n 20 -c 1 -w 5
 
 ```
 
