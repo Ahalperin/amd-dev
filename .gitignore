@@ -49,3 +49,5 @@ __pycache__/
 **/graph.xml
 **/nccl_debug.log
 **/topo.xml
+
+optimization_runs/**/*

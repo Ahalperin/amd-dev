@@ -1,0 +1,156 @@
+# RCCL Parameter Optimization Configuration
+# This file defines the parameter search space and test configuration
+
+# Test Configuration
+test_config:
+  # Test executable name (from rccl-tests/build/)
+  test_name: "all_reduce_perf"
+  
+  # Test arguments
+  minbytes: "256M"      # -b parameter
+  maxbytes: "256M"      # -e parameter
+  stepfactor: 2         # -f parameter
+  gpus_per_rank: 1      # -g parameter
+  iterations: 20        # -n parameter
+  warmup_iters: 5       # -w parameter
+  check_iters: 1        # -c parameter
+  
+  # MPI configuration
+  mpi_hosts: "172.30.160.145:8,172.30.160.150:8"  # Host specification
+  num_processes: 16     # --np parameter
+  bind_to: "numa"       # --bind-to parameter
+  
+  # Network interface configuration
+  oob_tcp_if: "enp81s0f1np1"
+  btl_tcp_if: "enp81s0f1np1"
+  
+  # Timeout for each test run (seconds)
+  timeout: 300
+
+# Fixed Environment Variables (always set, not optimized)
+fixed_env_vars:
+  # Path configuration
+  PATH: "/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"
+  LD_LIBRARY_PATH: "/home/dn/amd-dev/amd/rccl/build/release:/home/dn/amd-dev/amd/amd-anp/build:/usr/local/lib:"
+  LD_PRELOAD: "/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so"
+  
+  # Network configuration
+  NCCL_SOCKET_IFNAME: "enp81s0f1np1"
+  NCCL_IB_HCA: "ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1"
+  NCCL_IB_GID_INDEX: 1
+  
+  # Debug/logging (set to INFO for optimization, can change to VERSION for less output)
+  NCCL_DEBUG: "VERSION"
+  
+  # Other fixed settings
+  HSA_NO_SCRATCH_RECLAIM: 1
+  NCCL_IGNORE_CPU_AFFINITY: 1
+  NCCL_GDRCOPY_ENABLE: 0
+  NCCL_DMABUF_ENABLE: 0
+  IONIC_LOCKFREE: "all"
+
+# Parameters to Optimize
+# Each parameter has: type, values/range, and description
+optimize_params:
+  
+  # InfiniBand QPS per connection
+  NCCL_IB_QPS_PER_CONNECTION:
+    type: "categorical"
+    values: [1, 2, 4, 8]
+    description: "Number of QPs per IB connection"
+  
+  # Traffic Class settings
+  NCCL_IB_TC:
+    type: "categorical"
+    values: [104, 106, 160, 192]
+    description: "InfiniBand Traffic Class"
+  
+  NCCL_IB_FIFO_TC:
+    type: "categorical"
+    values: [104, 160, 192, 224]
+    description: "InfiniBand FIFO Traffic Class"
+  
+  # Protocol settings
+  RCCL_LL128_FORCE_ENABLE:
+    type: "categorical"
+    values: [0, 1]
+    description: "Force enable LL128 protocol"
+  
+  NCCL_PXN_DISABLE:
+    type: "categorical"
+    values: [0, 1]
+    description: "Disable PXN (0=enable, 1=disable)"
+  
+  # Inline data
+  NCCL_IB_USE_INLINE:
+    type: "categorical"
+    values: [0, 1]
+    description: "Use inline data for small messages"
+  
+  # GDR settings
+  NCCL_GDR_FLUSH_DISABLE:
+    type: "categorical"
+    values: [0, 1]
+    description: "Disable GDR flush"
+  
+  RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING:
+    type: "categorical"
+    values: [0, 1]
+    description: "GDR flush without relaxed ordering"
+  
+  # Optional receive completion
+  NET_OPTIONAL_RECV_COMPLETION:
+    type: "categorical"
+    values: [0, 1]
+    description: "Enable optional receive completion"
+  
+  # Algorithm selection (optional - comment out if you want RCCL to auto-select)
+  # NCCL_ALGO:
+  #   type: "categorical"
+  #   values: ["RING", "TREE", "COLLNET_DIRECT", "COLLNET_CHAIN", "NVLS", "NVLS_TREE"]
+  #   description: "Force specific algorithm"
+  
+  # Buffer size (optional - advanced parameter)
+  # NCCL_BUFFSIZE:
+  #   type: "integer"
+  #   range: [524288, 4194304]  # 512KB to 4MB
+  #   description: "Buffer size in bytes"
+
+# Optimization Settings
+optimization:
+  # Optimization method: "bayesian", "random", or "grid"
+  method: "bayesian"
+  
+  # Maximum number of iterations
+  max_iterations: 50
+  
+  # Number of initial random samples (for Bayesian optimization)
+  n_initial_points: 10
+  
+  # Objective metric to optimize: "busbw_oop", "busbw_ip", "algbw_oop", "algbw_ip", "avg_busbw"
+  objective: "busbw_oop"  # Out-of-place bus bandwidth
+  
+  # Optimization direction: "maximize" or "minimize"
+  direction: "maximize"
+  
+  # Number of validation runs for best configuration
+  validation_runs: 5
+  
+  # Early stopping: stop if no improvement after N iterations
+  early_stopping_patience: 15
+
+# Output Configuration
+output:
+  # Results database file
+  database: "rccl_optimization_results.db"
+  
+  # Output directory for logs and reports
+  output_dir: "optimization_runs"
+  
+  # Save detailed logs
+  save_logs: true
+  
+  # Verbosity level: 0=quiet, 1=normal, 2=verbose
+  verbosity: 1
+
+

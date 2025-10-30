@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Output directories
+optimization_runs/
+*.db
+*.db-journal
+
+# Plots and reports
+*.png
+*.pdf
+*.html
+analysis_report/
+report/
+
+# Logs
+*.log
+nccl_test_run_*/
+
+# Test outputs
+test_outputs/
+run_*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
