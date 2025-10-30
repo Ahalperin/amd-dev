@@ -1,6 +1,9 @@
 amd/**/*
 amd/rccl
 amd/rccl-tests
+
+meta/**/*
+
 **/.ccache
 
 # Profiling results and temporary files
