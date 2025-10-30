@@ -19,17 +19,18 @@ grep -q "alias c='clear'" ~/.bashrc || echo "alias c='clear'" >> ~/.bashrc
 grep -q "alias gs='git status'" ~/.bashrc || echo "alias gs='git status'" >> ~/.bashrc
 source ~/.bashrc
 
-# install ompi-4.1.6 only if not already installed
-if [ ! -d /opt/ompi-4.1.6 ]; then
-    cd ~/
-    wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz
-    tar -zxf openmpi-4.1.6.tar.gz
-    cd openmpi-4.1.6
-    sudo ./configure --prefix=/opt/ompi-4.1.6
-    make -j16 install
-    cd ..
-    sudo rm -rf openmpi-4.1.6 openmpi-4.1.6.tar.gz
+# install ompi-4.1.6 replace if already exists
+if [ -d /opt/ompi-4.1.6/ ]; then
+    sudo rm -rf /opt/ompi-4.1.6/
 fi
+cd ~/
+wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz
+tar -zxf openmpi-4.1.6.tar.gz
+cd openmpi-4.1.6
+sudo ./configure --prefix=/opt/ompi-4.1.6
+sudo make -j16 install
+cd ..
+sudo rm -rf openmpi-4.1.6 openmpi-4.1.6.tar.gz
 
 # clone amd repos & checkout to specific branches
 cd ~
