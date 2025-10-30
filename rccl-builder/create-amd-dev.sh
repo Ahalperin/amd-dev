@@ -3,8 +3,8 @@
 ########################################################
 
 # Exit immediately if any command fails
-set -e
-set -o pipefail
+# set -e
+# set -o pipefail
 
 # needed for ssh-copy-id to remote servers
 # ssh-keygen -t ed25519 -C "dn@$(hostname)" -f ~/.ssh/id_ed25519
@@ -43,7 +43,7 @@ git clone --recurse-submodules -b "develop" "https://github.com/ROCm/rccl-tests"
 git clone https://github.com/rocm/amd-anp
 
 # checkout git rccl to drop/2025-08
-cd ~/amd/rccl/
+cd ~/amd-dev/amd/rccl/
 git checkout drop/2025-08
 git switch -c drop/2025-08
 
@@ -51,17 +51,6 @@ git switch -c drop/2025-08
 cd ~/amd-dev/amd/amd-anp
 git checkout tags/v1.1.0-5
 git switch -c v1.1.0-5
-
-# install openmpi-4.1.6
-sudo rm -rf /opt/ompi-4.1.6/
-cd ~/
-wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz
-tar -zxf openmpi-4.1.6.tar.gz
-cd openmpi-4.1.6
-sudo ./configure --prefix=/opt/ompi-4.1.6
-sudo make -j16 install
-cd ..
-sudo rm -rf openmpi-4.1.6 openmpi-4.1.6.tar.gz
 
 # set environment variables
 export OMPI_HOME=/opt/ompi-4.1.6/
