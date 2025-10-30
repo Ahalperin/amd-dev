@@ -94,7 +94,7 @@ mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp8
 
 mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.nccl_debug.log NCCL_TOPO_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.topo.xml NCCL_GRAPH_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.graph.xml NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_IB_GID_INDEX=1 NCCL_SOCKET_IFNAME=enp81s0f1np1 LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128000 -e 8000000000 -f 2 -g 1"
 
-mpirun -H 172.30.160.150:8 -np 8 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
+mpirun -H 172.30.160.145:8 -np 8 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
 bash -c " \
 NCCL_MIN_NCHANNELS=64 \
 NCCL_MAX_NCHANNELS=64 \
@@ -153,6 +153,7 @@ NCCL_IB_GID_INDEX=1 \
 NCCL_SOCKET_IFNAME=enp81s0f1np1 \
 UCX_NET_DEVICES=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
 NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/home/dn/amd-dev/amd/amd-anp/build:/usr/local/lib: \
 /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1G -e 8G -f 2 -g 1"
 
 mpirun -H 172.30.160.145:8,172.30.160.150:8 -np 16 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
@@ -274,14 +275,17 @@ mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-t
 -x NCCL_IB_USE_INLINE=1 \
 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 \
 -x IONIC_LOCKFREE=all \
--x NCCL_PXN_DISABLE=0 \
+-x NCCL_PXN_DISABLE=0 \Heterogeneous GPU Support
 -x RCCL_LL128_FORCE_ENABLE=1  \
 -x NCCL_ALGO=RING \
 -x LD_PRELOAD=/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so \
 -x NCCL_BUFFSIZE=1194304 \
 /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 1M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
 
-/usr/bin/mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-to numa -x NCCL_IB_GID_INDEX=1 -x NCCL_GDR_FLUSH_DISABLE=1 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 -x NCCL_GDRCOPY_ENABLE=0 -x LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/usr/local/lib: -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 -x NCCL_DMABUF_ENABLE=0 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -x NCCL_IB_QPS_PER_CONNECTION=1 -x NCCL_TOPO_DUMP_FILE=/tmp/system_run2.txt -x HSA_NO_SCRATCH_RECLAIM=1 -x NCCL_IB_TC=104 -x NCCL_IB_FIFO_TC=192 -x NCCL_IGNORE_CPU_AFFINITY=1 -x NCCL_DEBUG=VERSION -x NET_OPTIONAL_RECV_COMPLETION=1 -x NCCL_IB_USE_INLINE=1 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 -x IONIC_LOCKFREE=all -x NCCL_PXN_DISABLE=0 -x RCCL_DISABLE_RAIL_TREES=1 -x NCCL_WORK_FIFO_BYTES=17179869184  /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 16 -e 16G -f 2 -g 1 -n 20 -c 1 -w 5
+/usr/bin/mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-to numa -x NCCL_IB_GID_INDEX=1 -x NCCL_GDR_FLUSH_DISABLE=1 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 -x NCCL_GDRCOPY_ENABLE=0 -x LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/usr/local/lib: -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 -x NCCL_DMABUF_ENABLE=0 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -x NCCL_IB_QPS_PER_CONNECTION=1 -x NCCL_TOPO_DUMP_FILE=/tmp/system_run2.txt -x HSA_NO_SCRATCH_RECLAIM=1 -x NCCL_IB_TC=104 -x NCCL_IB_FIFO_TC=192 -x NCCL_IGNORE_CPU_AFFINITY=1 -x NCCL_DEBUG=VERSION -x NET_OPTIONAL_RECV_COMPLETION=1 -x NCCL_IB_USE_INLINE=1 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 -x IONIC_LOCKFREE=all -x NCCL_PXN_DISABLE=0 -x RCCL_LL128_FORCE_ENABLE=1 -x RCCL_DISABLE_RAIL_TREES=1 -x NCCL_WORK_FIFO_BYTES=17179869184  /home/dn/amd-dev/amd/rccl-tests/build/alltoall_perf -b 256M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
+
+# last best Arik's run 
+mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-to numa -x NCCL_IB_GID_INDEX=1 -x NCCL_GDR_FLUSH_DISABLE=1 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 -x NCCL_GDRCOPY_ENABLE=0 -x PATH=/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin -x LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/home/dn/amd-dev/amd/amd-anp/build:/usr/local/lib: -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 -x NCCL_DMABUF_ENABLE=0 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -x NCCL_IB_QPS_PER_CONNECTION=1 -x NCCL_TOPO_DUMP_FILE=/tmp/system_run2.txt -x HSA_NO_SCRATCH_RECLAIM=1 -x NCCL_IB_TC=104 -x NCCL_IB_FIFO_TC=192 -x NCCL_IGNORE_CPU_AFFINITY=1 -x NCCL_DEBUG=VERSION -x NET_OPTIONAL_RECV_COMPLETION=1 -x NCCL_IB_USE_INLINE=1 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 -x IONIC_LOCKFREE=all -x NCCL_PXN_DISABLE=0 -x RCCL_LL128_FORCE_ENABLE=1 -x LD_PRELOAD=/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
 
 ```
 
