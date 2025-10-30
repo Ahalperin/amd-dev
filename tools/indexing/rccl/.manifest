@@ -1,0 +1,31 @@
+RCCL Code Indexing Package - File Manifest
+==========================================
+
+Location: /Users/ahalperin/xai/amd-dev/tools/indexing/rccl/
+
+Core Scripts (Executable):
+  ✓ setup.sh                      - Main deployment script
+  ✓ generate_compile_commands.py  - Database generator
+  ✓ verify.sh                     - Verification script
+
+Configuration Templates:
+  ✓ clangd-config                 - clangd configuration
+  ✓ vscode-settings.json          - VSCode settings
+
+Documentation:
+  ✓ INDEX.md                      - Package overview
+  ✓ QUICK-START.md                - Quick reference guide
+  ✓ README.md                     - Complete documentation
+
+Deployed Files (after running setup.sh):
+  → /Users/ahalperin/xai/amd-dev/amd/rccl/.clangd
+  → /Users/ahalperin/xai/amd-dev/amd/rccl/.vscode/settings.json
+  → /Users/ahalperin/xai/amd-dev/amd/rccl/compile_commands.json
+  → /Users/ahalperin/xai/amd-dev/amd/rccl/README-INDEXING.md
+
+Usage:
+  Setup:  ./setup.sh
+  Verify: ./verify.sh
+  Update: python3 generate_compile_commands.py
+
+Status: ✅ Complete and tested

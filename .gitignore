@@ -3,6 +3,7 @@ amd/rccl
 amd/rccl-tests
 
 meta/**/*
+nvidia/**/*
 
 **/.ccache
 
