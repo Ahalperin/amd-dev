@@ -128,8 +128,8 @@ def get_source_files():
     """Collect all C/C++/CUDA source files from the comms directory"""
     source_files = []
     
-    # Recursively find all source files
-    for ext in ['.cc', '.cpp', '.c', '.cu', '.cuh']:
+    # Recursively find all source files AND header files
+    for ext in ['.cc', '.cpp', '.c', '.cu', '.cuh', '.h', '.hpp']:
         source_files.extend(COMMS_DIR.rglob(f"*{ext}"))
     
     # Filter out test files (optional, comment out if you want to index tests)
@@ -155,7 +155,11 @@ def generate_compile_command(source_file):
     elif source_file.suffix == '.c':
         compiler = "clang"
         arguments = [compiler, "-std=c11"] + [f for f in BASE_CXX_FLAGS if f != "-std=c++17"]
-    else:
+    elif source_file.suffix == '.h':
+        # .h files - treat as C header (clangd will determine from context)
+        compiler = "clang++"
+        arguments = [compiler] + BASE_CXX_FLAGS.copy()
+    else:  # .cpp, .cc, .hpp files
         compiler = "clang++"
         arguments = [compiler] + BASE_CXX_FLAGS.copy()
     

@@ -70,3 +70,5 @@ echo "   - Hover: See type info and docs"
 echo ""
 echo "📖 For more info: cat $RT_DIR/README-INDEXING.md"
 
+
+
