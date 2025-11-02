@@ -109,13 +109,13 @@ def get_include_dirs():
 INCLUDE_DIRS = get_include_dirs()
 
 def get_source_files():
-    """Collect all C/C++/CUDA source files"""
+    """Collect all C/C++/CUDA source files AND header files"""
     source_files = []
     
-    # Get files from src/ and verifiable/
+    # Get files from src/ and verifiable/ - include all source and header files
     for directory in [SRC_DIR, RT_ROOT / "verifiable"]:
         if directory.exists():
-            for ext in ['.cu', '.cc', '.cpp', '.c', '.h']:
+            for ext in ['.cu', '.cc', '.cpp', '.c', '.h', '.hpp', '.cuh']:
                 source_files.extend(directory.glob(f"*{ext}"))
     
     return source_files
@@ -138,7 +138,13 @@ def generate_compile_command(source_file):
         if not Path(compiler).exists():
             compiler = "clang"
         arguments = [compiler, "-std=c11"] + [f for f in BASE_CXX_FLAGS if f != "-std=c++17"]
-    else:
+    elif source_file.suffix == '.h':
+        # .h files - treat as C++ header
+        compiler = str(ROCM_PATH / "llvm" / "bin" / "clang++")
+        if not Path(compiler).exists():
+            compiler = "clang++"
+        arguments = [compiler] + BASE_CXX_FLAGS.copy()
+    else:  # .cpp, .cc, .hpp files
         compiler = str(ROCM_PATH / "llvm" / "bin" / "clang++")
         if not Path(compiler).exists():
             compiler = "clang++"

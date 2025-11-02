@@ -103,10 +103,11 @@ def get_include_dirs():
 INCLUDE_DIRS = get_include_dirs()
 
 def get_source_files():
-    """Collect all C/C++ source files from the src directory"""
+    """Collect all C/C++ source files AND header files from the src directory"""
     source_files = []
     
-    for ext in ['.cc', '.cpp', '.c', '.cu']:
+    # Include source files AND header files for complete indexing
+    for ext in ['.cc', '.cpp', '.c', '.cu', '.cuh', '.h', '.hpp']:
         source_files.extend(SRC_DIR.rglob(f"*{ext}"))
     
     return source_files
@@ -125,7 +126,12 @@ def generate_compile_command(source_file):
         compiler = str(ROCM_PATH / "llvm" / "bin" / "clang")
         if not Path(compiler).exists():
             compiler = "clang"
-    else:
+    elif source_file.suffix == '.h':
+        # .h files - treat as C++ header (clangd will determine from context)
+        compiler = str(ROCM_PATH / "llvm" / "bin" / "clang++")
+        if not Path(compiler).exists():
+            compiler = "clang++"
+    else:  # .cpp, .cc, .hpp files
         compiler = str(ROCM_PATH / "llvm" / "bin" / "clang++")
         if not Path(compiler).exists():
             compiler = "clang++"
