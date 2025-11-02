@@ -1,34 +1,30 @@
-# clangd configuration for Meta TorchComms
-# This file helps clangd understand the TorchComms codebase better
-# Deploy this as .clangd in the TorchComms root directory
+# clangd configuration for RCCL-tests
+# This file helps clangd understand the RCCL-tests codebase better
+# Deploy this as .clangd in the RCCL-tests root directory
 
 CompileFlags:
-  # Treat CUDA files as C++
+  # Treat all files as C++ (helps with .cu files)
   Add:
     - "-xc++"
     - "-std=c++17"
     - "-ferror-limit=0"
-    # CUDA/HIP related defines
-    - "-D__CUDACC__"
-    - "-D__CUDA_ARCH__=800"
+    # HIP/ROCm related defines
     - "-D__HIP_PLATFORM_AMD__=1"
     - "-D__HIP_PLATFORM_HCC__=1"
-    # Suppress warnings
+    - "-D__HIPCC__"
+    - "-D__HIP_DEVICE_COMPILE__=0"
+    # Suppress some common warnings in CUDA/HIP code
     - "-Wno-unknown-cuda-version"
     - "-Wno-unknown-attributes"
     - "-Wno-cuda-compat"
     - "-Wno-ignored-attributes"
-    - "-Wno-unused-function"
-    - "-Wno-unused-variable"
     
-  # Remove problematic flags
+  # Remove problematic flags that might confuse clangd
   Remove:
-    - "-Werror"
-    - "--expt-extended-lambda"
-    - "-Xptxas*"
-    - "-Xfatbin*"
-    - "--cuda-gpu-arch=*"
     - "-fgpu-rdc"
+    - "--offload-arch=*"
+    - "--cuda-gpu-arch=*"
+    - "-Werror"
 
 Index:
   # Index in the background for better performance
@@ -51,6 +47,4 @@ InlayHints:
   Enabled: Yes
   ParameterNames: Yes
   DeducedTypes: Yes
-
-
 

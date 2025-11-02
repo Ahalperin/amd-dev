@@ -26,6 +26,17 @@ cd meta/torchcomms/
 
 See [meta/torchcomms/README.md](meta/torchcomms/README.md) for detailed documentation.
 
+### RCCL-tests
+
+Setup code navigation for RCCL test suite.
+
+```bash
+cd rccl-tests/
+./setup.sh
+```
+
+See [rccl-tests/README.md](rccl-tests/README.md) for detailed documentation.
+
 ## Why Use These Tools?
 
 Building large projects like RCCL can be:

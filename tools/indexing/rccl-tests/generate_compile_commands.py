@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Generate compile_commands.json for RCCL source code without building.
+Generate compile_commands.json for RCCL-tests source code without building.
 This enables code navigation features in editors using clangd.
 
 Usage:
-    python3 generate_compile_commands.py [RCCL_ROOT_DIR]
+    python3 generate_compile_commands.py [RCCL_TESTS_ROOT_DIR]
 
-If RCCL_ROOT_DIR is not provided, it defaults to ../../../amd/rccl relative to this script.
+If RCCL_TESTS_ROOT_DIR is not provided, it defaults to ../../../amd/rccl-tests relative to this script.
 """
 
 import json
@@ -14,31 +14,31 @@ import os
 import sys
 from pathlib import Path
 
-def find_rccl_root():
-    """Find RCCL root directory"""
+def find_rccl_tests_root():
+    """Find RCCL-tests root directory"""
     if len(sys.argv) > 1:
-        rccl_root = Path(sys.argv[1]).absolute()
+        rt_root = Path(sys.argv[1]).absolute()
     else:
-        # Default: assume script is in tools/indexing/rccl/
+        # Default: assume script is in tools/indexing/rccl-tests/
         script_dir = Path(__file__).parent.absolute()
-        rccl_root = (script_dir / "../../../amd/rccl").resolve()
+        rt_root = (script_dir / "../../../amd/rccl-tests").resolve()
     
-    if not rccl_root.exists():
-        print(f"❌ Error: RCCL root directory not found: {rccl_root}")
-        print(f"   Usage: python3 {sys.argv[0]} [RCCL_ROOT_DIR]")
+    if not rt_root.exists():
+        print(f"❌ Error: RCCL-tests root directory not found: {rt_root}")
+        print(f"   Usage: python3 {sys.argv[0]} [RCCL_TESTS_ROOT_DIR]")
         sys.exit(1)
     
-    src_dir = rccl_root / "src"
+    src_dir = rt_root / "src"
     if not src_dir.exists():
-        print(f"❌ Error: RCCL src directory not found: {src_dir}")
-        print(f"   Make sure {rccl_root} is the correct RCCL root directory")
+        print(f"❌ Error: RCCL-tests src directory not found: {src_dir}")
+        print(f"   Make sure {rt_root} is the correct RCCL-tests root directory")
         sys.exit(1)
     
-    return rccl_root
+    return rt_root
 
-# Base directory for RCCL
-RCCL_ROOT = find_rccl_root()
-SRC_DIR = RCCL_ROOT / "src"
+# Base directory for RCCL-tests
+RT_ROOT = find_rccl_tests_root()
+SRC_DIR = RT_ROOT / "src"
 
 # Detect ROCm installation
 def find_rocm_path():
@@ -56,22 +56,37 @@ def find_rocm_path():
 
 ROCM_PATH = find_rocm_path()
 
+# Try to find RCCL installation
+def find_rccl_path():
+    """Try to find RCCL installation"""
+    candidates = [
+        RT_ROOT.parent / "rccl",  # Sibling directory
+        Path("/opt/rocm/rccl"),
+        ROCM_PATH / "rccl",
+    ]
+    for candidate in candidates:
+        if candidate.exists() and (candidate / "src").exists():
+            return candidate
+    return RT_ROOT.parent / "rccl"  # fallback to sibling
+
+RCCL_PATH = find_rccl_path()
+
 # Common compile flags for C++ files
 BASE_CXX_FLAGS = [
     "-std=c++17",
     "-Wall",
-    "-Wno-format-nonliteral",
     "-Wno-unused-function",
     "-fPIC",
     "-D__HIP_PLATFORM_AMD__",
     "-D__HIP_PLATFORM_HCC__",
     "-DROCM_VERSION=60200",
-    "-DENABLE_COLLTRACE",
-    "-DCOMPILE_MSCCL_KERNEL",
-    "-DHIP_UNCACHED_MEMORY",
-    "-DENABLE_LL128",
-    "-DROCTX_ENABLE",
-    "-DENABLE_PROFILING",
+]
+
+# HIP/CUDA flags for .cu files
+CUDA_FLAGS = [
+    "-x", "hip",
+    "--cuda-gpu-arch=gfx90a",
+    "-D__CUDACC__",
 ]
 
 # Include directories
@@ -79,22 +94,13 @@ def get_include_dirs():
     """Generate list of include directories"""
     includes = [
         str(SRC_DIR),
-        str(SRC_DIR / "include"),
-        str(SRC_DIR / "device"),
-        str(SRC_DIR / "device" / "network" / "unpack"),
-        str(SRC_DIR / "include" / "mlx5"),
-        str(SRC_DIR / "include" / "plugin"),
-        str(SRC_DIR / "include" / "nvtx3"),
-        str(SRC_DIR / "include" / "msccl"),
-        str(SRC_DIR / "include" / "npkit"),
-        str(SRC_DIR / "include" / "latency_profiler"),
-        str(SRC_DIR / "include" / "proxy_trace"),
-        str(SRC_DIR / "include" / "mscclpp"),
+        str(RT_ROOT),
+        str(RCCL_PATH / "src"),
+        str(RCCL_PATH / "src" / "include"),
         str(ROCM_PATH / "include"),
         str(ROCM_PATH / "include" / "hip"),
         str(ROCM_PATH / "include" / "hsa"),
-        str(ROCM_PATH / "include" / "rocm_smi"),
-        str(ROCM_PATH / "rocm_smi" / "include"),
+        str(ROCM_PATH / "rccl" / "include"),
         "/usr/include",
         "/usr/local/include",
     ]
@@ -103,11 +109,14 @@ def get_include_dirs():
 INCLUDE_DIRS = get_include_dirs()
 
 def get_source_files():
-    """Collect all C/C++ source files from the src directory"""
+    """Collect all C/C++/CUDA source files"""
     source_files = []
     
-    for ext in ['.cc', '.cpp', '.c', '.cu']:
-        source_files.extend(SRC_DIR.rglob(f"*{ext}"))
+    # Get files from src/ and verifiable/
+    for directory in [SRC_DIR, RT_ROOT / "verifiable"]:
+        if directory.exists():
+            for ext in ['.cu', '.cc', '.cpp', '.c', '.h']:
+                source_files.extend(directory.glob(f"*{ext}"))
     
     return source_files
 
@@ -121,17 +130,19 @@ def generate_compile_command(source_file):
             compiler = str(ROCM_PATH / "llvm" / "bin" / "clang++")
             if not Path(compiler).exists():
                 compiler = "clang++"
+        arguments = [compiler] + BASE_CXX_FLAGS.copy()
+        if compiler.endswith("clang++"):
+            arguments.extend(CUDA_FLAGS)
     elif source_file.suffix == '.c':
         compiler = str(ROCM_PATH / "llvm" / "bin" / "clang")
         if not Path(compiler).exists():
             compiler = "clang"
+        arguments = [compiler, "-std=c11"] + [f for f in BASE_CXX_FLAGS if f != "-std=c++17"]
     else:
         compiler = str(ROCM_PATH / "llvm" / "bin" / "clang++")
         if not Path(compiler).exists():
             compiler = "clang++"
-    
-    # Build command arguments
-    arguments = [compiler] + BASE_CXX_FLAGS.copy()
+        arguments = [compiler] + BASE_CXX_FLAGS.copy()
     
     # Add include directories
     for inc_dir in INCLUDE_DIRS:
@@ -141,7 +152,7 @@ def generate_compile_command(source_file):
     arguments.extend(["-c", str(source_file)])
     
     return {
-        "directory": str(RCCL_ROOT),
+        "directory": str(RT_ROOT),
         "command": " ".join(arguments),
         "file": str(source_file),
         "arguments": arguments,
@@ -149,9 +160,10 @@ def generate_compile_command(source_file):
 
 def main():
     """Generate compile_commands.json"""
-    print(f"🔍 Scanning RCCL source tree...")
-    print(f"   RCCL root: {RCCL_ROOT}")
+    print(f"🔍 Scanning RCCL-tests source tree...")
+    print(f"   RCCL-tests root: {RT_ROOT}")
     print(f"   ROCm path: {ROCM_PATH}")
+    print(f"   RCCL path: {RCCL_PATH}")
     
     source_files = get_source_files()
     
@@ -165,17 +177,15 @@ def main():
     for source_file in sorted(source_files):
         compile_commands.append(generate_compile_command(source_file))
     
-    output_file = RCCL_ROOT / "compile_commands.json"
+    output_file = RT_ROOT / "compile_commands.json"
     with open(output_file, 'w') as f:
         json.dump(compile_commands, f, indent=2)
     
     print(f"\n✅ Generated compile_commands.json with {len(compile_commands)} entries")
     print(f"✅ Output: {output_file}")
     print(f"\n💡 You can now use clangd for code navigation!")
-    print(f"   Try opening {RCCL_ROOT} in your editor with clangd support.")
+    print(f"   Try opening {RT_ROOT} in your editor with clangd support.")
 
 if __name__ == "__main__":
     main()
-
-
 

@@ -1,14 +1,14 @@
 #!/bin/bash
-# Verification script to check TorchComms indexing setup
+# Verification script to check RCCL-tests indexing setup
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TC_DIR="${1:-$(cd "$SCRIPT_DIR/../../../../meta/torchcomms" && pwd)}"
+RT_DIR="${1:-$(cd "$SCRIPT_DIR/../../../amd/rccl-tests" && pwd)}"
 
-echo "🔍 Verifying TorchComms indexing setup..."
+echo "🔍 Verifying RCCL-tests indexing setup..."
 echo ""
-echo "TorchComms directory: $TC_DIR"
+echo "RCCL-tests directory: $RT_DIR"
 echo ""
 
 # Initialize counters
@@ -38,17 +38,17 @@ echo ""
 
 # Check deployed files
 echo "📁 Checking Deployed Files:"
-check "compile_commands.json exists" "test -f '$TC_DIR/compile_commands.json'"
-check ".clangd config exists" "test -f '$TC_DIR/.clangd'"
-check "VSCode settings exist" "test -f '$TC_DIR/.vscode/settings.json'"
-check "README exists" "test -f '$TC_DIR/README-INDEXING.md'"
+check "compile_commands.json exists" "test -f '$RT_DIR/compile_commands.json'"
+check ".clangd config exists" "test -f '$RT_DIR/.clangd'"
+check "VSCode settings exist" "test -f '$RT_DIR/.vscode/settings.json'"
+check "README exists" "test -f '$RT_DIR/README-INDEXING.md'"
 echo ""
 
 # Check compile_commands.json content
-if [ -f "$TC_DIR/compile_commands.json" ]; then
+if [ -f "$RT_DIR/compile_commands.json" ]; then
     echo "📊 Compilation Database Stats:"
-    ENTRY_COUNT=$(grep -c '"file":' "$TC_DIR/compile_commands.json" 2>/dev/null || echo "0")
-    FILE_SIZE=$(ls -lh "$TC_DIR/compile_commands.json" | awk '{print $5}')
+    ENTRY_COUNT=$(grep -c '"file":' "$RT_DIR/compile_commands.json" 2>/dev/null || echo "0")
+    FILE_SIZE=$(ls -lh "$RT_DIR/compile_commands.json" | awk '{print $5}')
     
     check "Has source file entries (found $ENTRY_COUNT)" "test $ENTRY_COUNT -gt 0"
     echo "   File size: $FILE_SIZE"
@@ -57,16 +57,16 @@ fi
 
 # Check if key source files are indexed
 echo "🔎 Checking Sample Files:"
-for file in "comms/ctran/Ctran.cc" "comms/ctran/algos/AllReduce/AllReduceDirect.cc" "comms/torchcomms/TorchComm.cpp"; do
-    check "$file is indexed" "grep -q '$TC_DIR/$file' '$TC_DIR/compile_commands.json' 2>/dev/null"
+for file in "src/all_reduce.cu" "src/common.cu" "src/common.h"; do
+    check "$file is indexed" "grep -q '$RT_DIR/$file' '$RT_DIR/compile_commands.json' 2>/dev/null"
 done
 echo ""
 
 # Check directory structure
 echo "📂 Checking Code Structure:"
-check "comms/ctran exists" "test -d '$TC_DIR/comms/ctran'"
-check "comms/torchcomms exists" "test -d '$TC_DIR/comms/torchcomms'"
-check "comms/utils exists" "test -d '$TC_DIR/comms/utils'"
+check "src/ exists" "test -d '$RT_DIR/src'"
+check "src/all_reduce.cu exists" "test -f '$RT_DIR/src/all_reduce.cu'"
+check "src/common.h exists" "test -f '$RT_DIR/src/common.h'"
 echo ""
 
 # Summary
@@ -78,12 +78,12 @@ if [ $CHECKS_PASSED -eq $CHECKS_TOTAL ]; then
     echo "✅ All checks passed! Setup is complete."
     echo ""
     echo "🚀 Next steps:"
-    echo "   1. Open VSCode: code '$TC_DIR'"
+    echo "   1. Open VSCode: code '$RT_DIR'"
     echo "   2. Install 'clangd' extension"
     echo "   3. Disable 'C/C++' extension"
     echo "   4. Reload window and start navigating!"
     echo ""
-    echo "📖 See: $TC_DIR/README-INDEXING.md"
+    echo "📖 See: $RT_DIR/README-INDEXING.md"
     exit 0
 elif [ $CHECKS_PASSED -gt $((CHECKS_TOTAL / 2)) ]; then
     echo "⚠️  Some checks failed, but setup is mostly complete."
@@ -97,6 +97,4 @@ else
     echo "   ./setup.sh"
     exit 1
 fi
-
-
 

@@ -51,6 +51,28 @@ cd /Users/ahalperin/xai/amd-dev/tools/indexing/meta/torchcomms
 
 ---
 
+### 3. RCCL-tests
+
+**Location:** `/Users/ahalperin/xai/amd-dev/tools/indexing/rccl-tests/`
+
+**Statistics:**
+- ✅ 24 source files indexed
+- ✅ 31KB compilation database
+- ✅ 12/12 verification checks passed
+
+**Quick Start:**
+```bash
+cd /Users/ahalperin/xai/amd-dev/tools/indexing/rccl-tests
+./setup.sh
+```
+
+**Files Created:**
+- `setup.sh`, `generate_compile_commands.py`, `verify.sh`
+- Configuration: `clangd-config`, `vscode-settings.json`
+- Documentation: `README.md`, `QUICK-START.md`, `INDEX.md`
+
+---
+
 ## 🎯 Common Features (Both Projects)
 
 ✅ **Go to Definition** (F12) - Jump to implementation  
@@ -128,7 +150,8 @@ tools/indexing/
 |---------|-------|------|----------|
 | RCCL | 96 | 255KB | src/ directory |
 | TorchComms | 657 | 1.4MB | comms/ directory |
-| **Total** | **753** | **1.7MB** | **All C++/CUDA** |
+| RCCL-tests | 24 | 31KB | Test suite |
+| **Total** | **777** | **1.7MB** | **All C++/CUDA** |
 
 ---
 

@@ -1,8 +1,8 @@
-# Meta TorchComms Code Indexing - Complete Package
+# RCCL-tests Code Indexing - Complete Package
 
 ## 📦 What's Included
 
-This package provides everything needed to set up code navigation for Meta TorchComms without building.
+This package provides everything needed to set up code navigation for RCCL-tests without building.
 
 ### Files
 
@@ -19,14 +19,14 @@ This package provides everything needed to set up code navigation for Meta Torch
 
 ```bash
 # Run setup
-cd /Users/ahalperin/xai/amd-dev/tools/indexing/meta/torchcomms
+cd /Users/ahalperin/xai/amd-dev/tools/indexing/rccl-tests
 ./setup.sh
 
 # Verify
 ./verify.sh
 
 # Open in VSCode
-code /Users/ahalperin/xai/amd-dev/meta/torchcomms
+code /Users/ahalperin/xai/amd-dev/amd/rccl-tests
 ```
 
 Done! Install the clangd extension in VSCode and start navigating.
@@ -35,26 +35,25 @@ Done! Install the clangd extension in VSCode and start navigating.
 
 - **Quick Start**: `QUICK-START.md` - Essential commands and shortcuts
 - **Full Guide**: `README.md` - Complete documentation with troubleshooting
-- **Parent**: `../../README.md` - Overview of all indexing tools
+- **Parent**: `../README.md` - Overview of all indexing tools
 
 ## ✅ What You Get
 
-After running `./setup.sh`, TorchComms will have:
+After running `./setup.sh`, RCCL-tests will have:
 
-- ✅ **657 source files indexed**
+- ✅ **24 test files indexed**
 - ✅ Full go-to-definition support
 - ✅ Find all references
-- ✅ Call hierarchy
 - ✅ Symbol search
 - ✅ Hover documentation
 - ✅ Code completion
-- ✅ Rename refactoring
+- ✅ Navigate to RCCL API calls
 
 All without building!
 
 ## 🎯 Common Tasks
 
-### Setup TorchComms Indexing
+### Setup RCCL-tests Indexing
 ```bash
 ./setup.sh
 ```
@@ -64,9 +63,9 @@ All without building!
 python3 generate_compile_commands.py
 ```
 
-### Setup Different TorchComms Directory
+### Setup Different RCCL-tests Directory
 ```bash
-./setup.sh /path/to/other/torchcomms
+./setup.sh /path/to/other/rccl-tests
 ```
 
 ### Verify Setup
@@ -82,13 +81,11 @@ python3 generate_compile_commands.py
 | Find References | `Shift+F12` |
 | Symbol Search | `Cmd+T` |
 | Hover Info | `hover` |
-| Rename | `F2` |
-| Call Hierarchy | `right-click` |
 
 ## 📂 Directory Structure
 
 ```
-tools/indexing/meta/torchcomms/   # This directory
+tools/indexing/rccl-tests/        # This directory
 ├── setup.sh                      # Main setup script
 ├── generate_compile_commands.py  # Database generator
 ├── verify.sh                     # Verification script
@@ -99,8 +96,8 @@ tools/indexing/meta/torchcomms/   # This directory
 └── INDEX.md                      # This file
 
 After setup:
-meta/torchcomms/                  # TorchComms directory
-├── compile_commands.json         # Generated database (1.4M, 657 files)
+amd/rccl-tests/                   # RCCL-tests directory
+├── compile_commands.json         # Generated database (31KB, 24 files)
 ├── .clangd                       # Deployed config
 ├── .vscode/settings.json         # Deployed settings
 └── README-INDEXING.md            # User guide
@@ -110,30 +107,30 @@ meta/torchcomms/                  # TorchComms directory
 
 - **clangd** - Language server (install: `brew install llvm`)
 - **Python 3** - For generation script
-- **CUDA** - Optional (auto-detected if available)
+- **ROCm** - Auto-detected if available
 - **Editor** - VSCode, Neovim, Emacs, etc. with clangd support
 
 ## 📊 Status
 
 ✅ **Tested and working**
 - 12/12 verification checks passed
-- 657 source files indexed
-- 1.4MB compilation database
+- 24 source files indexed
+- 31KB compilation database
 - All configuration files deployed
 
 ## 🎓 Learning Path
 
 1. **Start here**: `QUICK-START.md`
-2. **Try it**: Open TorchComms in VSCode with clangd
-3. **Experiment**: Navigate AllReduce implementation
+2. **Try it**: Open RCCL-tests in VSCode with clangd
+3. **Experiment**: Navigate AllReduce test implementation
 4. **Go deeper**: Read `README.md` for advanced features
 
 ## 🔄 Maintenance
 
-When TorchComms source code changes:
+When RCCL-tests source code changes:
 
 ```bash
-cd /Users/ahalperin/xai/amd-dev/tools/indexing/meta/torchcomms
+cd /Users/ahalperin/xai/amd-dev/tools/indexing/rccl-tests
 python3 generate_compile_commands.py
 ```
 
@@ -142,17 +139,15 @@ clangd will automatically re-index.
 ## 🎉 Success!
 
 If you can:
-- Press F12 on `AllReduceDirect` and jump to its definition
-- Press Shift+F12 to see all usages
-- Use Cmd+T to search for any symbol
+- Press F12 on `ncclAllReduce` in a test and jump to RCCL
+- Press Shift+F12 to see all test usages
+- Use Cmd+T to search for test functions
 
-Then it's working! Enjoy navigating the TorchComms codebase.
+Then it's working! Enjoy navigating the RCCL test suite.
 
 ## 📞 Support
 
 - **Documentation**: See `README.md`
 - **Quick help**: See `QUICK-START.md`
 - **clangd docs**: https://clangd.llvm.org/
-
-
 
