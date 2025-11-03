@@ -1,7 +1,8 @@
 # RCCL Research Documentation - Complete Index
 
 **Generated:** October 30, 2025  
-**Total Documentation:** 6 comprehensive documents (~5,400+ lines)  
+**Last Updated:** November 2, 2025  
+**Total Documentation:** 8 comprehensive documents (~5,800+ lines)  
 **Purpose:** Complete research and optimization guide for RCCL
 
 ---
@@ -26,6 +27,48 @@
 ---
 
 ### 📖 Core Documentation (Read in Order)
+
+#### 0. [rccl-allreduce-flow.md](rccl-allreduce-flow.md) - **Software Flow Analysis**
+- **Size:** 428 lines (15 KB)
+- **Level:** Intermediate to Advanced
+- **Reading time:** 1 hour
+- **Purpose:** Understand the complete software execution flow for allReduce operations
+
+**Contents:**
+```
+├── High-Level Flow Summary (10 phases)
+├── Detailed Sequence Diagram (Mermaid)
+│   ├── API Entry → Validation
+│   ├── Task Enqueuing → Group Management
+│   ├── Algorithm Selection → Plan Building
+│   ├── Kernel Launch → GPU Execution
+│   └── Proxy Operations → Completion
+├── Key Components Breakdown
+│   ├── API Layer (collectives.cc)
+│   ├── Enqueue Layer (enqueue.cc)
+│   ├── Group Management (group.cc)
+│   ├── Algorithm & Protocol Selection (tuning.cc)
+│   ├── Plan Building
+│   ├── Kernel Launch
+│   ├── GPU Kernel (device/common.cu)
+│   ├── Primitives Layer (primitives.h)
+│   ├── Proxy Thread (proxy.cc)
+│   └── Transport Layer
+├── Ring AllReduce Algorithm Detail
+│   ├── Reduce-Scatter Phase (N-1 steps)
+│   └── AllGather Phase (N-1 steps)
+├── Protocol Selection Heuristics
+│   ├── Simple (>512 KB)
+│   ├── LL128 (8-512 KB)
+│   └── LL (<8 KB)
+├── Performance Considerations
+├── Source File Reference Table
+└── Optimization Opportunities
+```
+
+**Why read this:** Essential for understanding the end-to-end execution path from API call to GPU completion. The sequence diagram provides a visual roadmap of all major interactions between components.
+
+---
 
 #### 1. [rccl-design-overview.md](rccl-design-overview.md) - **Architecture Guide**
 - **Size:** 1,000+ lines (25 KB)
@@ -287,11 +330,11 @@
 ## 📊 Documentation Statistics
 
 ```
-Total Files:     7 documents
-Total Lines:     ~5,400+ lines
-Total Size:      ~150 KB
-Coverage:        Architecture, Optimization, Implementation, Tools, Reference
-Time to Read:    8-12 hours (complete set)
+Total Files:     8 documents
+Total Lines:     ~5,800+ lines
+Total Size:      ~165 KB
+Coverage:        Architecture, Flow Analysis, Optimization, Implementation, Tools, Reference
+Time to Read:    9-13 hours (complete set)
 Level Range:     Beginner to Advanced
 ```
 
@@ -320,12 +363,13 @@ Level Range:     Beginner to Advanced
 **Reading Order:**
 1. [README.md](README.md) - Overview (30 min)
 2. [rccl-design-overview.md](rccl-design-overview.md) - Architecture (1-2 hr)
-3. [rccl-technical-internals.md](rccl-technical-internals.md) - Implementation details (3-4 hr)
-4. [rccl-branch-analysis.md](rccl-branch-analysis.md) - Recent changes (30 min)
-5. [rccl-bottleneck-analysis.md](rccl-bottleneck-analysis.md) - Hot spots (2-3 hr)
-6. [quick-reference.md](quick-reference.md) - Keep handy (ongoing)
+3. [rccl-allreduce-flow.md](rccl-allreduce-flow.md) - Software flow analysis (1 hr)
+4. [rccl-technical-internals.md](rccl-technical-internals.md) - Implementation details (3-4 hr)
+5. [rccl-branch-analysis.md](rccl-branch-analysis.md) - Recent changes (30 min)
+6. [rccl-bottleneck-analysis.md](rccl-bottleneck-analysis.md) - Hot spots (2-3 hr)
+7. [quick-reference.md](quick-reference.md) - Keep handy (ongoing)
 
-**Total Time:** 7-11 hours initial reading
+**Total Time:** 8-12 hours initial reading
 
 ---
 
@@ -388,6 +432,7 @@ Level Range:     Beginner to Advanced
 ├── README.md                                    [Navigation Hub]
 ├── INDEX.md                                     [This File]
 ├── rccl-design-overview.md                      [Architecture]
+├── rccl-allreduce-flow.md                       [Software Flow Analysis]
 ├── rccl-bottleneck-analysis.md                  [Optimization]
 ├── rccl-technical-internals.md                  [Implementation]
 ├── quick-reference.md                           [Quick Lookup]
@@ -498,6 +543,7 @@ export NCCL_DEBUG=INFO
 | rccl-technical-internals.md | ✅ Complete | 2025-10-30 | - |
 | quick-reference.md | ✅ Complete | 2025-10-30 | - |
 | optimization-roadmap.md | ✅ Complete | 2025-10-30 | - |
+| rccl-allreduce-flow.md | ✅ Complete | 2025-11-02 | - |
 | rccl-environment-variables-analysis.md | ✅ Complete | Pre-existing | - |
 | rccl-branch-analysis.md | ✅ Complete | Pre-existing | - |
 
@@ -556,10 +602,10 @@ See [RCCL LICENSE.txt](../../../amd/rccl/LICENSE.txt) for library licensing.
 
 ---
 
-**Last Updated:** October 30, 2025  
-**Version:** 1.0  
+**Last Updated:** November 2, 2025  
+**Version:** 1.1  
 **Maintained by:** RCCL Performance Engineering Research Team
 
-**Total Documentation Package: 5,400+ lines covering all aspects of RCCL optimization** 🎉
+**Total Documentation Package: 5,800+ lines covering all aspects of RCCL optimization** 🎉
 
 

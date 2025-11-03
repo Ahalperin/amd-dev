@@ -1,6 +1,6 @@
 # RCCL Research and Optimization Documentation
 
-**Last Updated:** October 30, 2025  
+**Last Updated:** November 2, 2025  
 **Purpose:** Comprehensive documentation for RCCL performance analysis, bottleneck identification, and optimization
 
 ---
@@ -14,6 +14,24 @@ This directory contains in-depth research and analysis of the **RCCL (ROCm Commu
 ## Document Index
 
 ### Core Documentation
+
+#### 0. [**RCCL AllReduce Software Flow Analysis**](rccl-allreduce-flow.md) 🔄
+**Status:** ✅ Complete  
+**Purpose:** Detailed sequence diagram and analysis of allReduce execution flow
+
+**Contents:**
+- High-level flow summary (10 phases)
+- Detailed Mermaid sequence diagram
+- Key components breakdown (API → GPU kernel)
+- Ring allReduce algorithm details
+- Protocol selection heuristics
+- Performance considerations
+- Source file reference table
+- Optimization opportunities
+
+**When to Read:** Essential for understanding the complete software execution path from user API call to GPU kernel completion. Perfect for developers who need to trace through the entire stack.
+
+---
 
 #### 1. [**RCCL Design Overview**](rccl-design-overview.md) 📐
 **Status:** ✅ Complete  
