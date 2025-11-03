@@ -18,6 +18,8 @@ CompileFlags:
     - "-Wno-unknown-attributes"
     - "-Wno-cuda-compat"
     - "-Wno-ignored-attributes"
+    # Enable detailed macro expansion tracking for better indexing
+    - "-fmacro-backtrace-limit=0"
     
   # Remove problematic flags that might confuse clangd
   Remove:
@@ -33,6 +35,8 @@ CompileFlags:
 Index:
   # Index in the background for better performance
   Background: Build
+  # Enable standard library indexing for better cross-reference
+  StandardLibrary: Yes
   
 Diagnostics:
   # Suppress some diagnostics that don't make sense without full build
@@ -51,6 +55,14 @@ InlayHints:
   Enabled: Yes
   ParameterNames: Yes
   DeducedTypes: Yes
+
+Completion:
+  AllScopes: Yes
+
+SemanticTokens:
+  DisabledKinds: []
+  DisabledModifiers: []
+
 
 
 
