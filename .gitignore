@@ -11,6 +11,10 @@ nvidia/**/*
 tools/profiling_results/
 workspace/profiling_results/
 **/profiling_results/
+auto-tune/**/*
+test_rccl_no_preload/**/*
+test_rccl_prof/**/*
+test_rocprof_output/**/*
 
 # ROCm profiling output files
 *.csv
