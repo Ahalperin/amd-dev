@@ -24,6 +24,18 @@
   - Tools reference
   - FAQ
 
+#### [proxy-thread/README.md](proxy-thread/README.md) - **Proxy Thread System**
+- **Size:** 7 comprehensive documents (~3,500+ lines total)
+- **Purpose:** Complete guide to RCCL's proxy thread mechanism
+- **When to read:** When working on communication internals or debugging proxy-related issues
+- **Key sections:**
+  - Architecture and design patterns
+  - Threading model and lifecycle
+  - Data structures and relationships
+  - Communication protocols
+  - Transport integration
+  - Performance tuning
+
 ---
 
 ### 📖 Core Documentation (Read in Order)
@@ -212,7 +224,66 @@
 
 ### 🔧 Supporting Documentation
 
-#### 4. [rccl-environment-variables-analysis.md](rccl-environment-variables-analysis.md)
+#### 4. [proxy-thread/](proxy-thread/) - **Proxy Thread System Documentation**
+- **Size:** 7 documents, ~3,500+ lines
+- **Level:** Intermediate to Advanced
+- **Purpose:** Comprehensive documentation of RCCL's proxy thread mechanism
+
+**Contents:**
+```
+├── README.md - Overview and navigation
+├── architecture.md - System architecture and design patterns
+│   ├── Design philosophy
+│   ├── Thread architecture (Progress, Service, UDS)
+│   ├── Operation flow diagrams
+│   └── Design patterns used
+├── threading-model.md - Thread lifecycle and synchronization
+│   ├── Thread creation and lifecycle
+│   ├── Synchronization mechanisms
+│   ├── Thread interactions
+│   └── Performance characteristics
+├── data-structures.md - Data structures and relationships
+│   ├── Core structures (ncclProxyState, etc.)
+│   ├── Operation structures
+│   ├── Connection structures
+│   └── State machines
+├── communication-protocol.md - Communication patterns and messages
+│   ├── Message types
+│   ├── Operation flow
+│   ├── Asynchronous RPC protocol
+│   └── Progress protocol
+├── transport-integration.md - Transport layer integration
+│   ├── Network transport (InfiniBand, RoCE)
+│   ├── Shared memory transport
+│   ├── P2P transport
+│   └── CollNet transport
+└── performance-tuning.md - Performance optimization guide
+    ├── Environment variables
+    ├── Tuning strategies
+    ├── Common issues
+    └── Hardware-specific tuning
+```
+
+**Why read this:** 
+- Essential for understanding asynchronous communication in RCCL
+- Critical for debugging proxy-related hangs or performance issues
+- Required for adding new transport types
+- Helpful for optimizing network communication performance
+
+**Reading Order for Proxy System:**
+1. proxy-thread/README.md (15 min)
+2. proxy-thread/architecture.md (1-2 hr)
+3. proxy-thread/threading-model.md (1-2 hr)
+4. proxy-thread/data-structures.md (1 hr)
+5. proxy-thread/communication-protocol.md (1 hr)
+6. proxy-thread/transport-integration.md (1 hr)
+7. proxy-thread/performance-tuning.md (1 hr)
+
+**Total Time:** 6-9 hours for complete proxy system understanding
+
+---
+
+#### 5. [rccl-environment-variables-analysis.md](rccl-environment-variables-analysis.md)
 - **Size:** 570+ lines (29 KB)
 - **Status:** Pre-existing, comprehensive
 - **Purpose:** Complete reference of all RCCL environment variables
@@ -234,7 +305,7 @@
 
 ---
 
-#### 5. [rccl-branch-analysis.md](rccl-branch-analysis.md)
+#### 6. [rccl-branch-analysis.md](rccl-branch-analysis.md)
 - **Size:** 260+ lines (9.4 KB)
 - **Status:** Pre-existing
 - **Purpose:** Track changes between branches (develop vs drop/2025-08)
@@ -249,7 +320,7 @@
 
 ---
 
-#### 6. [quick-reference.md](quick-reference.md) - **Quick Lookup**
+#### 7. [quick-reference.md](quick-reference.md) - **Quick Lookup**
 - **Size:** 520+ lines (12 KB)
 - **Level:** All levels
 - **Purpose:** Fast reference during debugging/optimization
@@ -285,7 +356,7 @@
 
 ---
 
-#### 7. [optimization-roadmap.md](optimization-roadmap.md) - **Structured Plan**
+#### 8. [optimization-roadmap.md](optimization-roadmap.md) - **Structured Plan**
 - **Size:** 650+ lines (22 KB)
 - **Level:** Intermediate to Advanced
 - **Purpose:** Phased approach to systematic optimization
@@ -330,11 +401,11 @@
 ## 📊 Documentation Statistics
 
 ```
-Total Files:     8 documents
-Total Lines:     ~5,800+ lines
-Total Size:      ~165 KB
-Coverage:        Architecture, Flow Analysis, Optimization, Implementation, Tools, Reference
-Time to Read:    9-13 hours (complete set)
+Total Files:     15 documents (8 core + 7 proxy thread)
+Total Lines:     ~9,300+ lines
+Total Size:      ~245 KB
+Coverage:        Architecture, Flow Analysis, Optimization, Implementation, Tools, Reference, Proxy Internals
+Time to Read:    13-18 hours (complete set)
 Level Range:     Beginner to Advanced
 ```
 
@@ -439,8 +510,16 @@ Level Range:     Beginner to Advanced
 ├── optimization-roadmap.md                      [Structured Plan]
 ├── rccl-environment-variables-analysis.md       [Env Variables]
 ├── rccl-branch-analysis.md                      [Branch Comparison]
-└── net-plugin/
-    └── amd-anp-plugin-calls-analysis.md        [Network Plugin]
+├── net-plugin/
+│   └── amd-anp-plugin-calls-analysis.md        [Network Plugin]
+└── proxy-thread/                                [Proxy Thread System]
+    ├── README.md                                [Overview]
+    ├── architecture.md                          [Architecture & Design]
+    ├── threading-model.md                       [Threading Model]
+    ├── data-structures.md                       [Data Structures]
+    ├── communication-protocol.md                [Communication Protocol]
+    ├── transport-integration.md                 [Transport Integration]
+    └── performance-tuning.md                    [Performance Tuning]
 ```
 
 ---
@@ -546,6 +625,13 @@ export NCCL_DEBUG=INFO
 | rccl-allreduce-flow.md | ✅ Complete | 2025-11-02 | - |
 | rccl-environment-variables-analysis.md | ✅ Complete | Pre-existing | - |
 | rccl-branch-analysis.md | ✅ Complete | Pre-existing | - |
+| proxy-thread/README.md | ✅ Complete | 2025-11-05 | - |
+| proxy-thread/architecture.md | ✅ Complete | 2025-11-05 | - |
+| proxy-thread/threading-model.md | ✅ Complete | 2025-11-05 | - |
+| proxy-thread/data-structures.md | ✅ Complete | 2025-11-05 | - |
+| proxy-thread/communication-protocol.md | ✅ Complete | 2025-11-05 | - |
+| proxy-thread/transport-integration.md | ✅ Complete | 2025-11-05 | - |
+| proxy-thread/performance-tuning.md | ✅ Complete | 2025-11-05 | - |
 
 **Documentation Coverage:** 100% ✅
 
@@ -602,10 +688,10 @@ See [RCCL LICENSE.txt](../../../amd/rccl/LICENSE.txt) for library licensing.
 
 ---
 
-**Last Updated:** November 2, 2025  
-**Version:** 1.1  
+**Last Updated:** November 5, 2025  
+**Version:** 1.2  
 **Maintained by:** RCCL Performance Engineering Research Team
 
-**Total Documentation Package: 5,800+ lines covering all aspects of RCCL optimization** 🎉
+**Total Documentation Package: 9,300+ lines covering all aspects of RCCL optimization and internals** 🎉
 
 
