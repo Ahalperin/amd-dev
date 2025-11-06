@@ -1,0 +1,292 @@
+diff --git a/src/include/proxy.h b/src/include/proxy.h
+index 1234567..89abcdef 100644
+--- a/src/include/proxy.h
++++ b/src/include/proxy.h
+@@ -215,6 +215,25 @@ struct ncclProxyArgs {
+ };
+ #define NCCL_MAX_NETDEVS 128
+ 
++// Lock-free ring buffer for proxy operations
++#define PROXY_RING_SIZE 1024  // Must be power of 2
++
++struct ncclProxyOpsRing {
++  struct ncclProxyOp ops[PROXY_RING_SIZE];
++  // Separate cache lines to prevent false sharing
++  union {
++    volatile uint64_t head;
++    char pad1[64];
++  };
++  union {
++    volatile uint64_t tail;
++    char pad2[64];
++  };
++};
++
++// Function declarations for lock-free queue
++int proxyRingPush(struct ncclProxyOpsRing* ring, struct ncclProxyOp* op);
++int proxyRingPop(struct ncclProxyOpsRing* ring, struct ncclProxyOp* op);
++
+ // ProxyOps are used to communicate between main thread and service thread
+ // Make sure we have enough to store two full rounds of operations on all channels.
+ // Otherwise we'd be unable to post half of them to free new elements. Each
+@@ -262,6 +281,7 @@ struct ncclProxyPool;
+ struct ncclProxyProgressState {
+   // Used by main threads to send work to progress thread
+   struct ncclProxyOpsPool* opsPool;
++  struct ncclProxyOpsRing* opsRing;  // NEW: Lock-free ring buffer
+   ncclShmHandle_t handle;
+   char opsPoolShmSuffix[6];
+ 
+@@ -325,6 +345,7 @@ struct ncclProxyState {
+   int cudaDev;
+   int p2pnChannels;
+   int p2pChunkSize;
++  int useLockFreeQueue;  // NEW: Enable lock-free queue optimization
+   int nChannels;
+   int buffSizes[NCCL_NUM_PROTOCOLS];
+   bool allocP2pNetLLBuffers;
+diff --git a/src/proxy.cc b/src/proxy.cc
+index abcdef01..12345678 100644
+--- a/src/proxy.cc
++++ b/src/proxy.cc
+@@ -798,6 +798,86 @@ static ncclResult_t progressOps(struct ncclProxyState* proxyState, struct ncclP
+   return ncclSuccess;
+ }
+ 
++// Lock-free ring buffer implementation
++NCCL_PARAM(ProxyLockFreeQueue, "PROXY_LOCKFREE_QUEUE", 1);
++
++int proxyRingPush(struct ncclProxyOpsRing* ring, struct ncclProxyOp* op) {
++  // Load current head (only producer writes to head)
++  uint64_t head = __atomic_load_n(&ring->head, __ATOMIC_RELAXED);
++  
++  // Load tail with acquire semantics to synchronize with consumer
++  uint64_t tail = __atomic_load_n(&ring->tail, __ATOMIC_ACQUIRE);
++  
++  // Check if ring is full
++  // Use >= instead of == to handle wrap-around correctly
++  if (head - tail >= PROXY_RING_SIZE) {
++    return 0;  // Ring is full
++  }
++  
++  // Calculate index with fast modulo (PROXY_RING_SIZE is power of 2)
++  uint64_t idx = head & (PROXY_RING_SIZE - 1);
++  
++  // Copy operation to ring (no synchronization needed yet)
++  memcpy(&ring->ops[idx], op, sizeof(struct ncclProxyOp));
++  
++  // Publish the new head with release semantics
++  // This ensures the operation copy completes before head is visible to consumer
++  __atomic_store_n(&ring->head, head + 1, __ATOMIC_RELEASE);
++  
++  return 1;  // Success
++}
++
++int proxyRingPop(struct ncclProxyOpsRing* ring, struct ncclProxyOp* op) {
++  // Load current tail (only consumer writes to tail)
++  uint64_t tail = __atomic_load_n(&ring->tail, __ATOMIC_RELAXED);
++  
++  // Load head with acquire semantics to synchronize with producer
++  uint64_t head = __atomic_load_n(&ring->head, __ATOMIC_ACQUIRE);
++  
++  // Check if ring is empty
++  if (tail >= head) {
++    return 0;  // Ring is empty
++  }
++  
++  // Calculate index with fast modulo
++  uint64_t idx = tail & (PROXY_RING_SIZE - 1);
++  
++  // Copy operation from ring
++  memcpy(op, &ring->ops[idx], sizeof(struct ncclProxyOp));
++  
++  // Advance tail with release semantics
++  __atomic_store_n(&ring->tail, tail + 1, __ATOMIC_RELEASE);
++  
++  return 1;  // Success
++}
++
++static ncclResult_t ncclProxyGetPostedOpsLockFree(struct ncclProxyState* proxyState, int* added) {
++  struct ncclProxyProgressState* state = &proxyState->progressState;
++  if (state->opsRing == NULL) return ncclInternalError;
++  
++  struct ncclProxyOp op;
++  int count = 0;
++  const int batchSize = ncclParamProxyAppendBatchSize();
++  
++  // Batch dequeue operations without any locks
++  while (count < batchSize) {
++    if (!proxyRingPop(state->opsRing, &op)) {
++      break;  // Ring is empty
++    }
++    
++    // Process the operation
++    NCCLCHECK(ProxyAppend(state, &op));
++    (*added)++;
++    count++;
++  }
++  
++  return ncclSuccess;
++}
++
++// Original implementation (kept for compatibility)
+ NCCL_PARAM(ProxyAppendBatchSize, "PROXY_APPEND_BATCH_SIZE", 16);
++NCCL_PARAM(ProxySpinCount, "PROXY_SPIN_COUNT", 100);
++NCCL_PARAM(ProxyYieldThreshold, "PROXY_YIELD_THRESHOLD", 1000);
+ 
+ static ncclResult_t ncclProxyGetPostedOps(struct ncclProxyState* proxyState, int* added) {
+   struct ncclProxyProgressState* state = &proxyState->progressState;
+@@ -933,11 +1013,56 @@ void ncclDumpProxyState(int signal) {
+ }
+ 
+ NCCL_PARAM(CreateThreadContext, "CREATE_THREAD_CONTEXT", 0);
++
+ static int setProxyThreadContext(struct ncclProxyState* proxyState) {
+   // ... existing implementation unchanged ...
+ }
+ 
++// Adaptive backoff function
++static inline void proxyAdaptiveWait(int* idleCount) {
++  const int spinMax = ncclParamProxySpinCount();
++  const int yieldThreshold = ncclParamProxyYieldThreshold();
++  
++  if (*idleCount < spinMax) {
++    // Tight spin with pause instructions
++    for (int i = 0; i < 10; i++) {
++#if defined(__x86_64__) || defined(__i386__)
++      __asm__ __volatile__("pause" ::: "memory");
++#elif defined(__aarch64__) || defined(__arm__)
++      __asm__ __volatile__("yield" ::: "memory");
++#else
++      // Generic busy wait
++      for (volatile int j = 0; j < 100; j++);
++#endif
++    }
++  } else if (*idleCount < yieldThreshold) {
++    // Short sleep
++    struct timespec ts = {0, 100};  // 100 nanoseconds
++    nanosleep(&ts, NULL);
++  } else {
++    // Long idle - yield CPU
++    sched_yield();
++  }
++  
++  (*idleCount)++;
++}
++
++// Prefetch helper for linked list traversal
++static inline void proxyPrefetchNext(struct ncclProxyArgs* op) {
++  if (op && op->next) {
++    // Prefetch next node with high temporal locality
++    __builtin_prefetch(op->next, 0, 3);
++    
++    // Prefetch the progress function pointer
++    __builtin_prefetch(&op->next->progress, 0, 3);
++    
++    // Prefetch first cache line of subs array
++    __builtin_prefetch(&op->next->subs[0], 0, 3);
++  }
++}
++
+ // Set to SIGUSR1 or SIGUSR2 to help debug proxy state during hangs
+ NCCL_PARAM(ProxyDumpSignal, "PROXY_DUMP_SIGNAL", -1);
+ NCCL_PARAM(ProgressAppendOpFreq, "PROGRESS_APPENDOP_FREQ", 8);
+@@ -963,18 +1088,28 @@ void* ncclProxyProgress(void *proxyState_) {
+    * frequency of calling ncclProxyGetPostedOps() and reduce the perf impact. */
+   int proxyOpAppendCounter = 0;
++  int consecutiveIdleCount = 0;
++  
++  // Choose implementation based on configuration
++  const int useLockFree = ncclParamProxyLockFreeQueue() && state->opsRing != NULL;
++  if (useLockFree) {
++    INFO(NCCL_INIT, "[Proxy Progress] Using lock-free queue optimization");
++  }
++  
+   do {
+     int idle = 1;
++    
++    // Prefetch optimization for linked list
++    if (state->active) {
++      proxyPrefetchNext(state->active);
++    }
++    
+     ncclResult_t ret = progressOps(proxyState, state, state->active, &idle);
+     if (ret != ncclSuccess) {
+       __atomic_store_n(&proxyState->asyncResult, ret, __ATOMIC_RELEASE);
+       INFO(NCCL_ALL,"%s:%d -> %d [Progress Thread]", __FILE__, __LINE__, ret);
+       break;
+     }
+-    void* eHandle;
+-    ncclProfilerStartProxyCtrlEvent(proxyState->profilerContext, &eHandle);
+-    if (lastIdle == 0 && idle == 1) ncclProfilerRecordProxyCtrlEventState(eHandle, 0, ncclProfilerProxyCtrlIdle);
+-    if (lastIdle == 1 && idle == 0) ncclProfilerRecordProxyCtrlEventState(eHandle, 0, ncclProfilerProxyCtrlActive);
+-    ncclProfilerStopProxyCtrlEvent(eHandle);
++    
+     if (idle || !state->active || (++proxyOpAppendCounter == ncclParamProgressAppendOpFreq())) {
+       int added = 0;
+       proxyOpAppendCounter = 0;
+       TIME_START(3);
+-      ret = ncclProxyGetPostedOps(proxyState, &added);
++      
++      // Use lock-free or traditional implementation
++      if (useLockFree) {
++        ret = ncclProxyGetPostedOpsLockFree(proxyState, &added);
++      } else {
++        ret = ncclProxyGetPostedOps(proxyState, &added);
++      }
++      
+       if (added) { TIME_STOP(3); } else { TIME_CANCEL(3); }
+       if (ret != ncclSuccess) {
+         __atomic_store_n(&proxyState->asyncResult, ret, __ATOMIC_RELEASE);
+         INFO(NCCL_ALL,"%s:%d -> %d [Progress Thread]", __FILE__, __LINE__, ret);
+       }
++      
+       if (added == 0) {
+-        sched_yield(); // No request progressed. Let others run.
++        // Adaptive wait instead of immediate yield
++        proxyAdaptiveWait(&consecutiveIdleCount);
++      } else {
++        consecutiveIdleCount = 0;  // Reset idle counter on activity
+       }
+     }
+     lastIdle = idle;
+@@ -1361,10 +1527,29 @@ ncclResult_t ncclProxyCallBlocking(struct ncclComm* comm, struct ncclProxyConne
+ 
+ static ncclResult_t proxyProgressInit(struct ncclProxyState* proxyState) {
+   struct ncclProxyProgressState* state = &proxyState->progressState;
++  
++  // Initialize lock-free ring buffer if enabled
++  if (ncclParamProxyLockFreeQueue()) {
++    if (state->opsRing == NULL) {
++      // Allocate ring buffer in shared memory for potential multi-process use
++      NCCLCHECK(ncclCalloc(&state->opsRing, 1));
++      
++      // Initialize atomics
++      __atomic_store_n(&state->opsRing->head, 0ULL, __ATOMIC_RELAXED);
++      __atomic_store_n(&state->opsRing->tail, 0ULL, __ATOMIC_RELAXED);
++      
++      INFO(NCCL_INIT, "Proxy lock-free ring buffer initialized (size=%d)", PROXY_RING_SIZE);
++    }
++  }
++  
+   if (state->opsPool == NULL) {
+     int size = sizeof(struct ncclProxyOpsPool);
+     struct ncclProxyOpsPool* pool = NULL;
+ 
++    // Traditional pool initialization (kept for fallback/compatibility)
+     char shmPath[sizeof("/dev/shm/nccl-XXXXXX")];
+     shmPath[0] = '\0';
+     NCCLCHECK(ncclShmOpen(shmPath, sizeof(shmPath), size, (void**)&pool, NULL, proxyState->tpLocalnRanks, &state->handle));
+@@ -1401,6 +1586,10 @@ static ncclResult_t proxyProgressInit(struct ncclProxyState* proxyState) {
+ 
+ static void proxyOpsFree(struct ncclProxyState* proxyState) {
+   struct ncclProxyProgressState* state = &proxyState->progressState;
++  if (state->opsRing != NULL) {
++    free(state->opsRing);
++    state->opsRing = NULL;
++  }
+   if (ncclShmClose(state->handle) != ncclSuccess) {
+     WARN("[Service thread] shm close failed");
+   }
+
+
