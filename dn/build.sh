@@ -27,7 +27,7 @@ done
 # set environment variables
 export OMPI_HOME=/opt/ompi-4.1.6/
 export OMPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/
-export RCCL_HOME=/home/dn/amd-dev/amd/rccl/
+export RCCL_HOME=/home/dn/amd-dev/dn/rccl/
 export RCCL_INSTALL_DIR=${RCCL_HOME}/build/release/
 export ROCM_HOME=/opt/rocm-7.0.1/
 # build rccl & rccl-tests
