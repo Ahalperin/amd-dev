@@ -8,6 +8,8 @@ nvidia/**/*
 **/.ccache
 
 # Profiling results and temporary files
+generated/**/*
+rccl_mpi_profile/**/*
 tools/profiling_results/
 workspace/profiling_results/
 **/profiling_results/
