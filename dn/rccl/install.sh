@@ -287,6 +287,7 @@ fi
 
 # Enable NPKit
 if [[ "${npkit_enabled}" == true ]]; then
+    # cmake_common_options="${cmake_common_options} -DENABLE_NPKIT=ON"
     cmake_common_options="${cmake_common_options} -DENABLE_NPKIT=ON -DENABLE_NPKIT_EVENT_ALL_REDUCE_RING_SEND_ENTRY=ON"
 fi
 
