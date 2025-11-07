@@ -30,7 +30,7 @@ extern const char* ncclProtoStr[NCCL_NUM_PROTOCOLS];
 extern const char* funcNames[FUNC_INDEX_TOTAL];
 
 #define NCCL_MAX_OPS 2048
-#define NCCL_STEPS 20
+#define NCCL_STEPS 8
 
 #ifdef __CUDA_ARCH__
   #define NCCL_CUDA_ARCH __CUDA_ARCH__
