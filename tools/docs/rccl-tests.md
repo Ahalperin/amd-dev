@@ -340,7 +340,7 @@ mpirun --np 16 --allow-run-as-root \
 -x NCCL_GDRCOPY_ENABLE=0 \
 -x PATH=/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin \
 -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
--x NCCL_DMABUF_ENABLE=1 \
+-x NCCL_DMABUF_ENABLE=0 \
 -x NCCL_IB_QPS_PER_CONNECTION=1 \
 -x HSA_NO_SCRATCH_RECLAIM=1 \
 -x NCCL_IB_TC=104 \
@@ -354,9 +354,10 @@ mpirun --np 16 --allow-run-as-root \
 -x RCCL_LL128_FORCE_ENABLE=1 \
 -x LD_LIBRARY_PATH=/home/dn/amd-dev/dn/rccl/build/release:/home/dn/amd-dev/dn/amd-anp/build:/usr/local/lib: \
 -x LD_PRELOAD=/home/dn/amd-dev/dn/amd-anp/build/librccl-net.so:/home/dn/amd-dev/dn/rccl/build/release/librccl.so \
+/home/dn/amd-dev/dn/rccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
+
 -x NCCL_DEBUG=INFO \
--x NCCL_DEBUG_FILE=nccl.log \
+-x NCCL_DEBUG_FILE=nccl_debug.log \
 -x NCCL_TOPO_DUMP_FILE=nccl_topo.xml \
 -x NCCL_GRAPH_DUMP_FILE=nccl_graph.xml \
 -x NCCL_DEBUG_SUBSYS=GRAPH,COLL \
-/home/dn/amd-dev/dn/rccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
