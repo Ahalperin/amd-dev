@@ -53,47 +53,6 @@ USAGE: all_gather_perf
         [-h,--help]
 ```
 
-## Running Tests in Container Context
-
-### To allow running in context of root use --allow-run-as-root
-
-### Execution for example on a single node single GPU
-
-```shell
-# /workspace/rccl-tests/build/all_gather_perf --allow-run-as-root -t 1 -g 1 -b 4 -e 8G -f 2 -N 8
-/workspace/rccl-tests/build/all_gather_perf -t 1 -g 1 -b 4 -e 8G -f 2 -N 8
-NCCL_DEBUG=INFO /workspace/rccl-tests/build/all_gather_perf -t 1 -g 8 -b 4 -e 8G -f 2 -N 1 | tee ah_all_gather_perf_8gpus_rccl.log
-```
-
-### Execute RCCL-tests on a single node inside docker container
-```shell
-docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_GRAPH_DUMP_FILE=ah_graph.xml /workspace/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 8
-```
-
-### Execution on 1 node single GPU via mpirun
-
-```shell
-mpirun --allow-run-as-root -np 1 --bind-to numa /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 1
-```
-
-### Execution on 2 nodes single GPU each
-
-```shell
-mpirun -H 172.30.160.147,172.30.160.146 -np 2 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO  /workspace/rccl-tests/build/all_reduce_perf -b 8 -e 128M -f 2 -g 8"
-
-mpirun -H 172.30.160.147:8,172.30.160.146:8 -np 16 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_GRAPH_DUMP_FILE=ah_graph.xml /workspace/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
-
-mpirun -H 172.30.160.146:8,172.30.160.147:8 -np 16 docker exec  rccl-builder bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH LD_LIBRARY_PATH=/workspace/rccl/build/release:\$LD_LIBRARY_PATH /workspace/rccl-tests/build/all_reduce_perf -b 64k -e 4G -f 2 -g 1"
-
-mpirun -H 172.30.160.127:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 8 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,ALL /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
-
-mpirun -H 172.30.160.127:8,172.30.160.128:8  --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -np 16 bash -c "NCCL_DEBUG_SUBSYS=GRAPH,ALL /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 4 -e 128M -f 2 -g 1"
-
-mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG_SUBSYS=GRAPH,ALL LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128K -e 4G -f 2 -g 1"
-mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_FILE=nccl_debug.log  NCCL_TOPO_DUMP_FILE=topo.xml  NCCL_GRAPH_DUMP_FILE=graph.xml NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_IB_GID_INDEX=1 NCCL_SOCKET_IFNAME=enp81s0f1np1 LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128K -e 4G -f 2 -g 1"
-
-mpirun -H 172.30.160.131:8,172.30.160.201:8 -np 16 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 bash -c "NCCL_DEBUG=INFO NCCL_DEBUG_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.nccl_debug.log NCCL_TOPO_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.topo.xml NCCL_GRAPH_DUMP_FILE=nccl_test_run_20251022_104820/all_reduce_perf_128000_8000000000_2.graph.xml NCCL_DEBUG_SUBSYS=GRAPH,ALL NCCL_IB_GID_INDEX=1 NCCL_SOCKET_IFNAME=enp81s0f1np1 LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:\$LD_LIBRARY_PATH /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 128000 -e 8000000000 -f 2 -g 1"
-
 mpirun -H 172.30.160.145:8 -np 8 --bind-to numa --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 \
 bash -c " \
 NCCL_MIN_NCHANNELS=64 \
@@ -275,7 +234,7 @@ mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-t
 -x NCCL_IB_USE_INLINE=1 \
 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 \
 -x IONIC_LOCKFREE=all \
--x NCCL_PXN_DISABLE=0 \Heterogeneous GPU Support
+-x NCCL_PXN_DISABLE=0 \
 -x RCCL_LL128_FORCE_ENABLE=1  \
 -x NCCL_ALGO=RING \
 -x LD_PRELOAD=/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so \
@@ -289,72 +248,7 @@ mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-t
 # last best Arik's run 
 mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-to numa -x NCCL_IB_GID_INDEX=1 -x NCCL_GDR_FLUSH_DISABLE=1 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 -x NCCL_GDRCOPY_ENABLE=0 -x PATH=/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin -x LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/home/dn/amd-dev/amd/amd-anp/build:/usr/local/lib: -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 -x NCCL_DMABUF_ENABLE=0 --mca oob_tcp_if_include enp81s0f1np1 --mca btl_tcp_if_include enp81s0f1np1 -x NCCL_IB_QPS_PER_CONNECTION=1 -x NCCL_TOPO_DUMP_FILE=/tmp/system_run2.txt -x HSA_NO_SCRATCH_RECLAIM=1 -x NCCL_IB_TC=104 -x NCCL_IB_FIFO_TC=192 -x NCCL_IGNORE_CPU_AFFINITY=1 -x NCCL_DEBUG=VERSION -x NET_OPTIONAL_RECV_COMPLETION=1 -x NCCL_IB_USE_INLINE=1 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 -x IONIC_LOCKFREE=all -x NCCL_PXN_DISABLE=0 -x RCCL_LL128_FORCE_ENABLE=1 -x LD_PRELOAD=/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so /home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
 
-```
 
-## Available Test Executables
-
-Common RCCL test executables available in `/workspace/rccl-tests/build/`:
-
-- **all_reduce_perf**: All-reduce collective operation
-- **all_gather_perf**: All-gather collective operation  
-- **reduce_scatter_perf**: Reduce-scatter collective operation
-- **broadcast_perf**: Broadcast collective operation
-- **reduce_perf**: Reduce collective operation
-- **alltoall_perf**: All-to-all collective operation
-- **sendrecv_perf**: Send/receive point-to-point operations
-
-## Running Tests in Ephemeral Container
-
-The `run_rccl_test_container.sh` script creates a temporary container, runs the test, and automatically cleans up:
-
-```bash
-# Basic usage
-/tools/scripts/run_rccl_test_container.sh all_reduce_perf -b 8 -e 128M -f 2 -g 1
-
-# Run all_gather test with multiple GPUs
-/tools/scripts/run_rccl_test_container.sh all_gather_perf -t 1 -g 8 -b 4 -e 8G -f 2
-
-# Run with debug output
-NCCL_DEBUG=INFO /tools/scripts/run_rccl_test_container.sh broadcast_perf -b 1M -e 1G -f 2
-
-# Run with debug subsystems
-NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,COLL /tools/scripts/run_rccl_test_container.sh all_reduce_perf -b 8 -e 128M -f 2 -g 1
-
-# Run in privileged mode (for advanced GPU access)
-USE_PRIVILEGED=1 /tools/scripts/run_rccl_test_container.sh all_reduce_perf -b 8 -e 128M -f 2 -g 1
-
-# Specify custom output directory
-RCCL_OUTPUT_DIR=/tmp/my_results /tools/scripts/run_rccl_test_container.sh all_gather_perf -b 1M -e 1G -f 2
-```
-
-Features:
-- Automatic container creation and cleanup
-- Captures all test output to log files
-- Saves logs to `rccl_test_results/` directory (configurable)
-- Supports all NCCL environment variables
-- No manual container management required
-
-## Integration with Profiling Scripts
-
-The profiling scripts in `/tools/scripts/` automatically use the correct container paths:
-
-```bash
-# Quick profiling
-/tools/scripts/quick_profile_rccl.sh all_reduce_perf
-
-# Basic profiling with custom arguments
-/tools/scripts/profile_rccl_basic.sh all_gather_perf -b 1M -e 1G -f 2
-
-# Advanced profiling
-/tools/scripts/profile_rccl_advanced.sh broadcast_perf
-
-# Multi-GPU profiling
-/tools/scripts/profile_rccl_multi_gpu.sh all_reduce_perf 4
-```
-
-## Profiling rccl-tests using rocprofv3 directly without helper script
-
-```bash
 
 # perfetto profiling output
 TEST_NAME="all_reduce_perf" \
@@ -428,11 +322,41 @@ mpirun --np 16 --allow-run-as-root -H 172.30.160.145:8,172.30.160.150:8 --bind-t
 -x NCCL_IB_USE_INLINE=1 \
 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 \
 -x IONIC_LOCKFREE=all \
--x NCCL_PXN_DISABLE=0 \Heterogeneous GPU Support
+-x NCCL_PXN_DISABLE=0 \
 -x RCCL_LL128_FORCE_ENABLE=1  \
 -x NCCL_ALGO=RING \
 -x LD_PRELOAD=/home/dn/amd-dev/dn/amd-anp/build/librccl-net.so:/home/dn/amd-dev/dn/rccl/build/release/librccl.so \
 -x NCCL_BUFFSIZE=1194304 \
--x NCCL_PROXY_APPEND_BATCH_SIZE= \
--x NCCL_PROGRESS_APPENDOP_FREQ= \
 /home/dn/amd-dev/dn/rccl-tests/build/all_reduce_perf -b 1M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5
+
+mpirun --np 16 --allow-run-as-root \
+-H 172.30.160.145:8,172.30.160.150:8 \
+--bind-to numa \
+--mca oob_tcp_if_include enp81s0f1np1 \
+--mca btl_tcp_if_include enp81s0f1np1 \
+-x NCCL_IB_GID_INDEX=1 \
+-x NCCL_GDR_FLUSH_DISABLE=1 \
+-x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
+-x NCCL_GDRCOPY_ENABLE=0 \
+-x PATH=/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin \
+-x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+-x NCCL_DMABUF_ENABLE=1 \
+-x NCCL_IB_QPS_PER_CONNECTION=1 \
+-x HSA_NO_SCRATCH_RECLAIM=1 \
+-x NCCL_IB_TC=104 \
+-x NCCL_IB_FIFO_TC=192 \
+-x NCCL_IGNORE_CPU_AFFINITY=1 \
+-x NET_OPTIONAL_RECV_COMPLETION=1 \
+-x NCCL_IB_USE_INLINE=1 \
+-x NCCL_SOCKET_IFNAME=enp81s0f1np1 \
+-x IONIC_LOCKFREE=all \
+-x NCCL_PXN_DISABLE=0 \
+-x RCCL_LL128_FORCE_ENABLE=1 \
+-x LD_LIBRARY_PATH=/home/dn/amd-dev/dn/rccl/build/release:/home/dn/amd-dev/dn/amd-anp/build:/usr/local/lib: \
+-x LD_PRELOAD=/home/dn/amd-dev/dn/amd-anp/build/librccl-net.so:/home/dn/amd-dev/dn/rccl/build/release/librccl.so \
+-x NCCL_DEBUG=INFO \
+-x NCCL_DEBUG_FILE=nccl.log \
+-x NCCL_TOPO_DUMP_FILE=nccl_topo.xml \
+-x NCCL_GRAPH_DUMP_FILE=nccl_graph.xml \
+-x NCCL_DEBUG_SUBSYS=GRAPH,COLL \
+/home/dn/amd-dev/dn/rccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 1 -n 20 -c 1 -w 5

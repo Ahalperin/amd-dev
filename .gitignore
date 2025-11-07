@@ -19,16 +19,15 @@ test_rccl_prof/**/*
 test_rocprof_output/**/*
 
 # ROCm profiling output files
-*.csv
-*.json
-*.db
-*.pftrace
-*.sqlite3
-*.txt
-results.*
-profile_*
-*_profile*
-*_trace*
+# *.csv
+# *.json
+# *.db
+# *.pftrace
+# *.sqlite3
+# results.*
+# profile_*
+# *_profile*
+# *_trace*
 
 # ROCm profiler temporary files
 .rocp/
