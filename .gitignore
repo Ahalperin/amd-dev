@@ -32,6 +32,7 @@ test_rocprof_output/**/*
 # ROCm profiler temporary files
 .rocp/
 rocprof_*
+.rocprofv3/
 rpl_data_*
 temp_*
 
@@ -52,8 +53,8 @@ __pycache__/
 *.pyo
 
 # RCCL tests output files
-**/graph.xml
+**/nccl_graph.xml
 **/nccl_debug.log
-**/topo.xml
+**/nccl_topo.xml
 
 optimization_runs/**/*
