@@ -81,15 +81,14 @@ mpirun --np $NP --allow-run-as-root -H $HOSTS \
 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
 -x NCCL_GDRCOPY_ENABLE=0 \
 -x PATH \
--x LD_LIBRARY_PATH=/home/dn/amd-dev/amd/rccl/build/release:/home/dn/amd-dev/amd/amd-anp/build:/usr/local/lib: \
--x LD_PRELOAD=/home/dn/amd-dev/amd/amd-anp/build/librccl-net.so:/home/dn/amd-dev/amd/rccl/build/release/librccl.so \
+-x LD_LIBRARY_PATH=/home/dn/amd-dev/dn/rccl/build/release:/home/dn/amd-dev/dn/amd-anp/build:/usr/local/lib: \
+-x LD_PRELOAD=/home/dn/amd-dev/dn/amd-anp/build/librccl-net.so:/home/dn/amd-dev/dn/rccl/build/release/librccl.so \
 -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
 -x NCCL_DMABUF_ENABLE=1 \
 -x HSA_NO_SCRATCH_RECLAIM=1 \
 -x NCCL_IB_TC=104 \
 -x NCCL_IB_FIFO_TC=192 \
 -x NCCL_IGNORE_CPU_AFFINITY=1 \
--x NCCL_TOPO_DUMP_FILE=${OUTPUT_DIR}/rccl.topo.log \
 -x NET_OPTIONAL_RECV_COMPLETION=1 \
 -x NCCL_IB_USE_INLINE=1 \
 -x NCCL_SOCKET_IFNAME=enp81s0f1np1 \
@@ -99,9 +98,11 @@ mpirun --np $NP --allow-run-as-root -H $HOSTS \
 -x NPKIT_DUMP_DIR=${OUTPUT_DIR}/npkit \
 -x NPKIT_FLAGS=0xFFFFFFFFFFFFFFFF \
 -x NCCL_DEBUG=INFO \
+-x NCCL_DEBUG_FILE=${OUTPUT_DIR}/rccl_debug.log \
+-x NCCL_TOPO_DUMP_FILE=${OUTPUT_DIR}/rccl.topo.log \
 -x NCCL_DEBUG_SUBSYS=GRAPH \
--x NCCL_DEBUG_FILE=${OUTPUT_DIR}/rccl.log \
-/home/dn/amd-dev/amd/rccl-tests/build/all_reduce_perf -b ${MESSAGE_SIZE} -e ${MESSAGE_SIZE} -f 2 -g 1 -n ${ITERATIONS} -c 1 -w ${WARMUP}
+-x NCCL_GRAPH_DUMP_FILE=nccl_graph.xml \
+/home/dn/amd-dev/dn/rccl-tests/build/all_reduce_perf -b ${MESSAGE_SIZE} -e ${MESSAGE_SIZE} -f 2 -g 1 -n ${ITERATIONS} -c 1 -w ${WARMUP}
 
 PROFILE_EXIT_CODE=$?
 
@@ -128,7 +129,7 @@ NPKIT_COUNT=$(find ${NPKIT_BASE_DIR} -type f 2>/dev/null | wc -l)
 echo "Found $NPKIT_COUNT NPKit binary trace files in ${NPKIT_BASE_DIR}"
 
 # Convert NPKit traces to JSON for rank 0 and rank 1
-RCCL_HOME="/home/dn/amd-dev/amd/rccl"
+RCCL_HOME="/home/dn/amd-dev/dn/rccl"
 NPKIT_GENERATOR="${RCCL_HOME}/tools/scripts/npkit_trace_generator.py"
 NPKIT_HEADER="${RCCL_HOME}/src/include/npkit/npkit_event.h"
 
