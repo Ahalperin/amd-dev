@@ -58,3 +58,5 @@ __pycache__/
 **/nccl_topo.xml
 
 optimization_runs/**/*
+
+.vscode/
