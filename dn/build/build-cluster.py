@@ -123,8 +123,8 @@ set -e
 cd /home/dn/amd-dev
 echo "Fetching latest changes..."
 git fetch -p
-git checkout -B {branch} origin/{branch}
-git pull --rebase origin
+git checkout {branch}
+git pull --rebase
 
 echo "Starting build..."
 cd /home/dn/amd-dev
