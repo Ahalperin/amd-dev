@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Exit immediately if a command exits with a non-zero status
+set -e
+# Exit if an undefined variable is used
+set -u
+# Fail on pipe errors
+set -o pipefail
+
 # Parse command line arguments
 NPKIT_FLAG=""
 RCCL_BRANCH="drop/2025-08"
@@ -39,6 +46,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+echo "============================================"
+echo "Starting RCCL build process"
+echo "============================================"
+echo "RCCL Branch: ${RCCL_BRANCH}"
+echo "AMD-ANP Branch: ${AMD_ANP_BRANCH}"
+echo "NPKit: ${NPKIT_FLAG:-disabled}"
+echo "============================================"
+echo ""
+
 # set environment variables
 export OMPI_HOME=/opt/ompi-4.1.6/
 export OMPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/
@@ -49,23 +65,36 @@ export ROCM_HOME=/opt/rocm-7.0.1/
 # checkout git rccl to specified branch/tag
 cd ~/amd-dev/dn/rccl/
 git fetch -p
-echo "Checking out RCCL: ${RCCL_BRANCH}"
+echo "Checking out RCCL: origin/${RCCL_BRANCH}"
 git checkout origin/${RCCL_BRANCH}
 git pull --rebase origin
 
 # build rccl based on specified branch
-cd /home/dn/amd-dev/dn/rccl && sudo rm -rf build && ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel --amdgpu_targets gfx950 ${NPKIT_FLAG}
+echo "Building RCCL..."
+cd /home/dn/amd-dev/dn/rccl
+sudo rm -rf build
+./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel --amdgpu_targets gfx950 ${NPKIT_FLAG}
 
 # build rccl-tests
-cd /home/dn/amd-dev/dn/rccl-tests/ && sudo rm -rf build && make MPI=1 MPI_HOME=${OMPI_HOME} NCCL_HOME=${RCCL_INSTALL_DIR} -j
+echo "Building RCCL tests..."
+cd /home/dn/amd-dev/dn/rccl-tests/
+sudo rm -rf build
+make MPI=1 MPI_HOME=${OMPI_HOME} NCCL_HOME=${RCCL_INSTALL_DIR} -j
 
 # checkout amd-anp to specified branch/tag
 cd ~/amd-dev/dn/amd-anp
 git fetch -p
-echo "Checking out AMD-ANP: ${AMD_ANP_BRANCH}"
+echo "Checking out AMD-ANP: origin/${AMD_ANP_BRANCH}"
 git checkout origin/${AMD_ANP_BRANCH}
 git pull --rebase origin
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
-cd /home/dn/amd-dev/dn/amd-anp && sudo rm -rf build && sudo make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}
-cd /home/dn/amd-dev/dn/amd-anp && sudo make RCCL_HOME=${RCCL_HOME} ROCM_PATH=${ROCM_HOME} install
+echo "Building AMD-ANP network plugin..."
+cd /home/dn/amd-dev/dn/amd-anp
+sudo rm -rf build
+sudo make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}
+
+echo "Installing AMD-ANP network plugin..."
+sudo make RCCL_HOME=${RCCL_HOME} ROCM_PATH=${ROCM_HOME} install
+
+echo "Build completed successfully!"
