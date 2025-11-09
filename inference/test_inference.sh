@@ -22,7 +22,13 @@ echo "=== Benchmark Configuration ==="
 echo "Number of prompts: $NUM_PROMPTS"
 echo ""
 
-# HF_TOKEN removed for security
+# HF_TOKEN should be set in your environment before running this script
+# Example: export HF_TOKEN="your_token_here"
+if [ -z "$HF_TOKEN" ]; then
+    echo "ERROR: HF_TOKEN environment variable is not set"
+    echo "Please set it before running: export HF_TOKEN='your_token_here'"
+    exit 1
+fi
 
 export HF_HUB_CACHE="/mnt/hf_hub_cache"
 export MODEL_PATH="/mnt/hf_hub_cache/models--deepseek-ai--DeepSeek-R1-0528/snapshots/4236a6af538feda4548eca9ab308586007567f52"  # Local path for server
