@@ -45,9 +45,11 @@ Examples:
     ./build-cluster.py -s "192.168.1.10,192.168.1.11" -b develop --rccl-branch develop --amd-anp-branch main --npkit
 
 Pre-flight Checks:
-    1. Main repository (/home/dn/amd-dev): uncommitted changes & unpushed commits
-    2. RCCL repository (dn/rccl): uncommitted changes & unpushed commits
-    3. AMD-ANP repository (dn/amd-anp): uncommitted changes & unpushed commits
+    1. Main repository (/home/dn/amd-dev):
+       - FAILS if uncommitted changes or unpushed commits touch dn/ directory
+       - WARNS (continues) if changes are outside dn/ directory
+    2. RCCL repository (dn/rccl): uncommitted changes & unpushed commits (FAILS)
+    3. AMD-ANP repository (dn/amd-anp): uncommitted changes & unpushed commits (FAILS)
 
 Remote Build Process:
     1. Fetch latest changes (git fetch -p)
@@ -174,9 +176,10 @@ def check_local_git_status() -> bool:
     """
     Check if there are uncommitted changes in the local repository
     Ignores untracked files, only checks for modified and staged files.
+    Only fails if changes are under dn/ directory; warns for other changes.
     
     Returns:
-        True if repository is clean, False if there are uncommitted changes
+        True if repository is clean or only has changes outside dn/, False if there are uncommitted changes under dn/
     """
     try:
         # Run git status --porcelain to check for any changes
@@ -190,20 +193,45 @@ def check_local_git_status() -> bool:
         
         # Filter out untracked files (lines starting with '??')
         # Only consider modified and staged files
-        tracked_changes = []
+        # Separate changes under dn/ from other changes
+        dn_changes = []
+        other_changes = []
         for line in result.stdout.strip().split('\n'):
             if line and not line.startswith('??'):
-                tracked_changes.append(line)
+                # Extract the file path (after the status code)
+                # Git status --porcelain format: XY filename
+                # where X is index status, Y is working tree status
+                # We need to handle formats like " M file", "M  file", "MM file", "R  old -> new"
+                parts = line.split(None, 1)  # Split on first whitespace
+                if len(parts) >= 2:
+                    file_path = parts[1].strip()
+                    # Handle renames (format: "old -> new")
+                    if ' -> ' in file_path:
+                        # For renames, check the new filename
+                        file_path = file_path.split(' -> ')[1].strip()
+                    
+                    if file_path.startswith('dn/'):
+                        dn_changes.append(line)
+                    else:
+                        other_changes.append(line)
         
-        # If there are tracked changes, abort
-        if tracked_changes:
-            print_error("Uncommitted changes detected in local repository!")
+        # If there are changes under dn/, abort
+        if dn_changes:
+            print_error("Uncommitted changes detected in local repository under dn/ directory!")
             print_error("Please commit or stash your changes before running this script.")
             print()
-            print("Uncommitted changes (tracked files only):")
-            for change in tracked_changes:
+            print("Uncommitted changes under dn/ (tracked files only):")
+            for change in dn_changes:
                 print(change)
             return False
+        
+        # If there are changes outside dn/, just warn
+        if other_changes:
+            print_warning("Uncommitted changes detected in local repository (outside dn/ directory):")
+            for change in other_changes:
+                print(f"  {change}")
+            print_warning("These changes are outside dn/ and will not block the build.")
+            print()
         
         return True
         
@@ -218,9 +246,10 @@ def check_local_git_status() -> bool:
 def check_unpushed_commits() -> bool:
     """
     Check if there are local commits that haven't been pushed to origin
+    Only fails if unpushed commits touch files under dn/ directory; warns for other commits.
     
     Returns:
-        True if all commits are pushed, False if there are unpushed commits
+        True if all commits are pushed or unpushed commits don't touch dn/, False if there are unpushed commits touching dn/
     """
     try:
         # First, fetch the latest remote information
@@ -254,9 +283,19 @@ def check_unpushed_commits() -> bool:
         unpushed_commits = result.stdout.strip().split('\n') if result.stdout.strip() else []
         
         if unpushed_commits and unpushed_commits[0]:
-            print_error(f"Unpushed commits detected on branch '{current_branch}'!")
-            print_error("Please push your commits to origin before running this script.")
-            print()
+            # Check which files are touched by unpushed commits
+            diff_result = subprocess.run(
+                ["git", "diff", "--name-only", "@{u}..HEAD"],
+                capture_output=True,
+                text=True,
+                cwd="/home/dn/amd-dev"
+            )
+            
+            changed_files = diff_result.stdout.strip().split('\n') if diff_result.stdout.strip() else []
+            
+            # Separate files under dn/ from other files
+            dn_files = [f for f in changed_files if f.startswith('dn/')]
+            other_files = [f for f in changed_files if not f.startswith('dn/')]
             
             # Show the unpushed commits
             log_result = subprocess.run(
@@ -265,9 +304,22 @@ def check_unpushed_commits() -> bool:
                 text=True,
                 cwd="/home/dn/amd-dev"
             )
-            print("Unpushed commits:")
-            print(log_result.stdout)
-            return False
+            
+            if dn_files:
+                print_error(f"Unpushed commits detected on branch '{current_branch}' that touch dn/ directory!")
+                print_error("Please push your commits to origin before running this script.")
+                print()
+                print("Unpushed commits:")
+                print(log_result.stdout)
+                print("Files under dn/ affected by unpushed commits:")
+                for f in dn_files:
+                    print(f"  {f}")
+                return False
+            else:
+                print_warning(f"Unpushed commits detected on branch '{current_branch}' (not touching dn/ directory):")
+                print(log_result.stdout)
+                print_warning("These commits don't affect dn/ and will not block the build.")
+                print()
         
         return True
         
@@ -504,14 +556,14 @@ def main():
 Description:
   This script performs pre-flight checks on local repositories:
   1. Main repository (/home/dn/amd-dev):
-     - Checks for uncommitted changes (modified/staged files, ignores untracked)
-     - Checks for unpushed commits to origin
+     - FAILS if uncommitted changes or unpushed commits touch dn/ directory
+     - WARNS (continues) if changes/commits are outside dn/ directory
   2. dn/rccl repository:
-     - Checks for uncommitted changes
-     - Checks for unpushed commits to origin
+     - Checks for uncommitted changes (FAILS if found)
+     - Checks for unpushed commits to origin (FAILS if found)
   3. dn/amd-anp repository:
-     - Checks for uncommitted changes
-     - Checks for unpushed commits to origin
+     - Checks for uncommitted changes (FAILS if found)
+     - Checks for unpushed commits to origin (FAILS if found)
   
   Branch defaults are read from branch-list.txt unless explicitly provided via command line.
   
@@ -596,18 +648,18 @@ Examples:
     print()
     
     # Check for uncommitted changes in local repository first
-    print_info("Checking local repository for uncommitted changes...")
+    print_info("Checking local repository for uncommitted changes under dn/...")
     if not check_local_git_status():
-        print_error("Build aborted due to uncommitted changes in local repository.")
+        print_error("Build aborted due to uncommitted changes under dn/ in local repository.")
         sys.exit(1)
-    print_info("Local repository is clean.")
+    print_info("Local repository has no uncommitted changes under dn/.")
     print()
     
     # Check for unpushed commits
     if not check_unpushed_commits():
-        print_error("Build aborted due to unpushed commits in local repository.")
+        print_error("Build aborted due to unpushed commits touching dn/ in local repository.")
         sys.exit(1)
-    print_info("All commits are pushed to origin.")
+    print_info("All commits touching dn/ are pushed to origin.")
     print()
     
     # Check dn/rccl subdirectory
