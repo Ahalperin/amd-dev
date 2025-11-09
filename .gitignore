@@ -1,6 +1,8 @@
+dn/rccl/
+dn/rccl-tests/
+dn/amd-anp/
+
 amd/**/*
-amd/rccl
-amd/rccl-tests
 
 meta/**/*
 nvidia/**/*
