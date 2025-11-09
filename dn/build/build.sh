@@ -48,6 +48,8 @@ export ROCM_HOME=/opt/rocm-7.0.1/
 
 # checkout git rccl to specified branch
 cd ~/amd-dev/dn/rccl/
+git fetch -p
+git pull --rebase
 git checkout ${RCCL_BRANCH}
 git switch -c ${RCCL_BRANCH}
 
@@ -59,6 +61,8 @@ cd /home/dn/amd-dev/dn/rccl-tests/ && sudo rm -rf build && make MPI=1 MPI_HOME=$
 
 # checkout amd-anp to specified branch/tag
 cd ~/amd-dev/dn/amd-anp
+git fetch -p
+git pull --rebase
 git checkout ${AMD_ANP_BRANCH}
 git switch -c ${AMD_ANP_BRANCH}
 
