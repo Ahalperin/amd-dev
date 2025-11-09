@@ -11,6 +11,8 @@ set -o pipefail
 NPKIT_FLAG=""
 RCCL_BRANCH="drop/2025-08"
 AMD_ANP_BRANCH="tags/v1.1.0-5"
+LOG_DIR="/home/dn/amd-dev/dn/build"
+ENABLE_LOGGING=true
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -29,12 +31,24 @@ while [[ $# -gt 0 ]]; do
             echo "AMD-ANP branch set to: $AMD_ANP_BRANCH"
             shift 2
             ;;
+        --log-dir)
+            LOG_DIR="$2"
+            echo "Log directory set to: $LOG_DIR"
+            shift 2
+            ;;
+        --no-log)
+            ENABLE_LOGGING=false
+            echo "Logging disabled"
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
             echo "  --npkit                Enable NPKit profiling support in RCCL"
             echo "  --rccl-branch BRANCH   Specify RCCL branch to checkout (default: drop/2025-08)"
             echo "  --amd-anp-branch BRANCH Specify AMD-ANP branch/tag to checkout (default: tags/v1.1.0-5)"
+            echo "  --log-dir DIR          Directory for log file (default: /home/dn/amd-dev/dn/build)"
+            echo "  --no-log               Disable logging to file"
             echo "  -h, --help             Show this help message"
             exit 0
             ;;
@@ -45,6 +59,48 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Setup logging to file if enabled
+if [ "$ENABLE_LOGGING" = true ]; then
+    
+    # Use fixed log filename
+    LOG_FILE="${LOG_DIR}/build.log"
+    
+    # Remove previous log file if it exists
+    if [ -f "${LOG_FILE}" ]; then
+        rm -f "${LOG_FILE}"
+    fi
+    
+    # Create a named pipe for tee
+    PIPE_NAME="/tmp/build_pipe_$$"
+    mkfifo "${PIPE_NAME}"
+    
+    # Start tee in background, redirecting both stdout and stderr
+    tee "${LOG_FILE}" < "${PIPE_NAME}" &
+    TEE_PID=$!
+    
+    # Redirect stdout and stderr to the named pipe
+    exec > "${PIPE_NAME}" 2>&1
+    
+    # Remove the pipe file (will remain available until all file descriptors are closed)
+    rm "${PIPE_NAME}"
+    
+    # Trap to ensure tee process is cleaned up on exit
+    cleanup() {
+        # Close file descriptors
+        exec 1>&- 2>&-
+        # Wait for tee to finish
+        wait ${TEE_PID} 2>/dev/null || true
+    }
+    trap cleanup EXIT
+    
+    echo "============================================"
+    echo "Logging enabled"
+    echo "Log file: ${LOG_FILE}"
+    echo "You can monitor progress in real-time with:"
+    echo "  tail -F ${LOG_FILE}"
+    echo "============================================"
+fi
 
 echo "============================================"
 echo "Starting RCCL build process"

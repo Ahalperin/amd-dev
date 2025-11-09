@@ -1,6 +1,7 @@
 dn/rccl/
 dn/rccl-tests/
 dn/amd-anp/
+dn/build/build.log
 
 amd/**/*
 
