@@ -73,7 +73,7 @@ echo "Checking out branch: {branch}"
 git checkout {branch}
 echo "Starting build..."
 cd /home/dn/amd-dev
-./dn/build.sh {build_flag}
+./dn/build/build.sh {build_flag}
 """
     
     try:
