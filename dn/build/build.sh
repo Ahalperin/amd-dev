@@ -66,7 +66,7 @@ export ROCM_HOME=/opt/rocm-7.0.1/
 cd ~/amd-dev/dn/rccl/
 git fetch -p
 echo "Checking out RCCL: origin/${RCCL_BRANCH}"
-git checkout origin/${RCCL_BRANCH}
+git checkout -B ${RCCL_BRANCH}
 git pull --rebase origin
 
 # build rccl based on specified branch
@@ -85,7 +85,7 @@ make MPI=1 MPI_HOME=${OMPI_HOME} NCCL_HOME=${RCCL_INSTALL_DIR} -j
 cd ~/amd-dev/dn/amd-anp
 git fetch -p
 echo "Checking out AMD-ANP: origin/${AMD_ANP_BRANCH}"
-git checkout origin/${AMD_ANP_BRANCH}
+git checkout -B ${AMD_ANP_BRANCH}
 git pull --rebase origin
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
