@@ -128,6 +128,7 @@ echo "Checking out branch: {branch}"
 git checkout {branch}
 echo "Starting build..."
 cd /home/dn/amd-dev
+print_info("Starting build({npkit_flag}, {rccl_flag}, {amd_anp_flag})")
 ./dn/build/build.sh {npkit_flag} {rccl_flag} {amd_anp_flag}
 """
     
