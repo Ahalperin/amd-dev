@@ -116,7 +116,7 @@ def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd
     npkit_flag = "--npkit" if npkit else ""
     rccl_flag = f"--rccl-branch {rccl_branch}"
     amd_anp_flag = f"--amd-anp-branch {amd_anp_branch}"
-    
+    print_info("Starting build({npkit_flag}, {rccl_flag}, {amd_anp_flag})")
     ssh_commands = f"""
 set -e
 cd /home/dn/amd-dev
@@ -128,7 +128,6 @@ echo "Checking out branch: {branch}"
 git checkout {branch}
 echo "Starting build..."
 cd /home/dn/amd-dev
-print_info("Starting build({npkit_flag}, {rccl_flag}, {amd_anp_flag})")
 ./dn/build/build.sh {npkit_flag} {rccl_flag} {amd_anp_flag}
 """
     
