@@ -46,11 +46,19 @@ export RCCL_HOME=/home/dn/amd-dev/dn/rccl/
 export RCCL_INSTALL_DIR=${RCCL_HOME}/build/release/
 export ROCM_HOME=/opt/rocm-7.0.1/
 
-# checkout git rccl to specified branch
+# checkout git rccl to specified branch/tag
 cd ~/amd-dev/dn/rccl/
 git fetch -p
-git checkout -B ${RCCL_BRANCH} origin/${RCCL_BRANCH}
-# git switch -c ${RCCL_BRANCH}
+# Handle both branches and tags
+if [[ "${RCCL_BRANCH}" == tags/* ]] || git rev-parse "refs/tags/${RCCL_BRANCH}" >/dev/null 2>&1; then
+    # It's a tag - just checkout directly
+    echo "Checking out RCCL tag: ${RCCL_BRANCH}"
+    git checkout ${RCCL_BRANCH}
+else
+    # It's a branch - checkout and track remote
+    echo "Checking out RCCL branch: ${RCCL_BRANCH}"
+    git checkout -B ${RCCL_BRANCH} origin/${RCCL_BRANCH}
+fi
 
 # build rccl based on specified branch
 cd /home/dn/amd-dev/dn/rccl && sudo rm -rf build && ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel --amdgpu_targets gfx950 ${NPKIT_FLAG}
@@ -61,8 +69,16 @@ cd /home/dn/amd-dev/dn/rccl-tests/ && sudo rm -rf build && make MPI=1 MPI_HOME=$
 # checkout amd-anp to specified branch/tag
 cd ~/amd-dev/dn/amd-anp
 git fetch -p
-git checkout -B ${AMD_ANP_BRANCH} origin/${AMD_ANP_BRANCH}
-# git switch -c ${AMD_ANP_BRANCH}
+# Handle both branches and tags
+if [[ "${AMD_ANP_BRANCH}" == tags/* ]] || git rev-parse "refs/tags/${AMD_ANP_BRANCH}" >/dev/null 2>&1; then
+    # It's a tag - just checkout directly
+    echo "Checking out AMD-ANP tag: ${AMD_ANP_BRANCH}"
+    git checkout ${AMD_ANP_BRANCH}
+else
+    # It's a branch - checkout and track remote
+    echo "Checking out AMD-ANP branch: ${AMD_ANP_BRANCH}"
+    git checkout -B ${AMD_ANP_BRANCH} origin/${AMD_ANP_BRANCH}
+fi
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
 cd /home/dn/amd-dev/dn/amd-anp && sudo rm -rf build && sudo make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}

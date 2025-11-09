@@ -122,10 +122,21 @@ set -e
 cd /home/dn/amd-dev
 echo "Fetching latest changes..."
 git fetch -p
-echo "Pulling with rebase..."
-git pull --rebase
 echo "Checking out branch: {branch}"
-git checkout {branch}
+# Check if it's a tag or branch and handle appropriately
+if [[ "{branch}" == tags/* ]] || git rev-parse "refs/tags/{branch}" >/dev/null 2>&1; then
+    echo "Checking out tag: {branch}"
+    git checkout {branch}
+else
+    echo "Checking out branch: {branch}"
+    # Try to checkout existing branch or create tracking branch
+    if git rev-parse --verify {branch} >/dev/null 2>&1; then
+        git checkout {branch}
+        git pull --rebase
+    else
+        git checkout -B {branch} origin/{branch}
+    fi
+fi
 echo "Starting build..."
 cd /home/dn/amd-dev
 ./dn/build/build.sh {npkit_flag} {rccl_flag} {amd_anp_flag}
