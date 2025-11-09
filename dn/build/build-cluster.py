@@ -1,8 +1,59 @@
 #!/usr/bin/env python3
 
 """
-Script to build RCCL on multiple servers
-Usage: build-cluster.py -s <servers-list> -b <branch-name>
+Script to build RCCL on multiple servers with comprehensive git verification
+
+This script performs pre-flight checks on local repositories (main, dn/rccl, dn/amd-anp)
+to ensure all changes are committed and pushed before starting parallel builds on remote servers.
+
+Branch defaults are read from branch-list.txt and can be overridden via command-line arguments.
+
+Usage:
+    build-cluster.py [options]
+
+Optional Arguments:
+    -b, --branch BRANCH           Main repository branch (default: from branch-list.txt)
+    -s, --servers SERVERS         Comma-separated server list (default: from server-list.txt)
+    --rccl-branch BRANCH          RCCL branch/tag (default: from branch-list.txt)
+    --amd-anp-branch BRANCH       AMD-ANP branch/tag (default: from branch-list.txt)
+    --npkit                       Enable NPKit profiling support in RCCL build
+
+Configuration Files:
+    branch-list.txt              Defines default branches for all repositories
+                                 Format: repo-name branch-name (one per line)
+                                 Example:
+                                   amd-dev     main
+                                   rccl        drop/2025-08
+                                   amd-anp     v1.1.0-5
+    
+    server-list.txt              List of servers to build on (one IP/hostname per line)
+
+Examples:
+    # Use all defaults from branch-list.txt and server-list.txt
+    ./build-cluster.py
+
+    # Override only the main branch
+    ./build-cluster.py -b feature/test
+
+    # Override RCCL and AMD-ANP branches
+    ./build-cluster.py --rccl-branch drop/2025-10 --amd-anp-branch tags/v1.2.0
+
+    # Custom server list with NPKit enabled
+    ./build-cluster.py -s "server1,server2" --npkit
+
+    # Full custom configuration
+    ./build-cluster.py -s "192.168.1.10,192.168.1.11" -b develop --rccl-branch develop --amd-anp-branch main --npkit
+
+Pre-flight Checks:
+    1. Main repository (/home/dn/amd-dev): uncommitted changes & unpushed commits
+    2. RCCL repository (dn/rccl): uncommitted changes & unpushed commits
+    3. AMD-ANP repository (dn/amd-anp): uncommitted changes & unpushed commits
+
+Remote Build Process:
+    1. Fetch latest changes (git fetch -p)
+    2. Pull with rebase (git pull --rebase)
+    3. Checkout specified branch
+    4. Execute build.sh with specified RCCL/AMD-ANP branches
 """
 
 import argparse
@@ -399,8 +450,53 @@ def read_servers_from_file(file_path: str) -> List[str]:
         return []
 
 
+def read_branches_from_file(file_path: str) -> dict:
+    """
+    Read branch names from branch-list.txt file
+    
+    Args:
+        file_path: Path to the file containing branch list
+        
+    Returns:
+        Dictionary mapping repo names to branch names
+        Example: {'amd-dev': 'main', 'rccl': 'drop/2025-08', 'amd-anp': 'v1.1.0-5'}
+    """
+    branches = {}
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty lines and comments
+                if not line or line.startswith('#'):
+                    continue
+                
+                # Parse the line: repo-name branch-name
+                parts = line.split(None, 1)  # Split on whitespace, max 2 parts
+                if len(parts) == 2:
+                    repo_name, branch_name = parts
+                    branches[repo_name] = branch_name
+        
+        return branches
+    except FileNotFoundError:
+        print_warning(f"Branch list file not found: {file_path}")
+        return {}
+    except Exception as e:
+        print_warning(f"Error reading branch list file: {e}")
+        return {}
+
+
 def main():
     """Main function"""
+    # Read branch defaults from branch-list.txt
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    branch_file = os.path.join(script_dir, "branch-list.txt")
+    branch_defaults = read_branches_from_file(branch_file)
+    
+    # Extract defaults from file or use hardcoded fallbacks
+    default_main_branch = branch_defaults.get('amd-dev', 'main')
+    default_rccl_branch = branch_defaults.get('rccl', 'drop/2025-08')
+    default_amd_anp_branch = branch_defaults.get('amd-anp', 'tags/v1.1.0-5')
+    
     parser = argparse.ArgumentParser(
         description="Build RCCL on multiple servers via SSH",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -417,6 +513,8 @@ Description:
      - Checks for uncommitted changes
      - Checks for unpushed commits to origin
   
+  Branch defaults are read from branch-list.txt unless explicitly provided via command line.
+  
   If checks pass, it connects to each server in the provided list via SSH and:
   1. Fetches latest git changes (git fetch -p)
   2. Rebases with remote (git pull --rebase)
@@ -429,12 +527,18 @@ Description:
   - If -s option is not provided, servers are read from server-list.txt
   - The file should contain one server IP/hostname per line
   - Lines starting with '#' are treated as comments and ignored
+  
+  Branch List:
+  - Default branches are read from branch-list.txt
+  - Format: repo-name branch-name (one per line)
+  - Command line arguments override file defaults
 
 Examples:
-  %(prog)s -b feature/new-optimization
+  %(prog)s                        # Use all defaults from branch-list.txt
+  %(prog)s -b feature/test        # Override main branch only
   %(prog)s -b main --rccl-branch drop/2025-10 --amd-anp-branch tags/v1.2.0
   %(prog)s -s "192.168.1.10,192.168.1.11" -b main --npkit
-  %(prog)s -s "server1,server2" -b main --rccl-branch develop --npkit
+  %(prog)s --rccl-branch develop --npkit  # Override RCCL branch, use others from file
         """
     )
     
@@ -445,20 +549,20 @@ Examples:
     
     parser.add_argument(
         "-b", "--branch",
-        required=True,
-        help="Branch name to checkout and build"
+        default=default_main_branch,
+        help=f"Main repository branch to checkout and build (default: {default_main_branch or 'from branch-list.txt'})"
     )
     
     parser.add_argument(
         "--rccl-branch",
-        default="drop/2025-08",
-        help="RCCL branch/tag to checkout (default: drop/2025-08)"
+        default=default_rccl_branch,
+        help=f"RCCL branch/tag to checkout (default: {default_rccl_branch})"
     )
     
     parser.add_argument(
         "--amd-anp-branch",
-        default="tags/v1.1.0-5",
-        help="AMD-ANP branch/tag to checkout (default: tags/v1.1.0-5)"
+        default=default_amd_anp_branch,
+        help=f"AMD-ANP branch/tag to checkout (default: {default_amd_anp_branch})"
     )
     
     parser.add_argument(
@@ -468,6 +572,28 @@ Examples:
     )
     
     args = parser.parse_args()
+    
+    # Validate that we have a main branch (either from file or command line)
+    if not args.branch:
+        print_error("No main branch specified and no default found in branch-list.txt")
+        print_error("Please specify a branch with -b/--branch or add 'amd-dev' entry to branch-list.txt")
+        sys.exit(1)
+    
+    # Display branch configuration
+    print_info("=" * 48)
+    print_info("BRANCH CONFIGURATION")
+    print_info("=" * 48)
+    if branch_defaults:
+        print_info(f"Loaded defaults from branch-list.txt:")
+        for repo, branch in sorted(branch_defaults.items()):
+            print_info(f"  {repo}: {branch}")
+        print()
+    
+    print_info("Branches to be used for build:")
+    print_info(f"  Main (amd-dev): {args.branch}")
+    print_info(f"  RCCL: {args.rccl_branch}")
+    print_info(f"  AMD-ANP: {args.amd_anp_branch}")
+    print()
     
     # Check for uncommitted changes in local repository first
     print_info("Checking local repository for uncommitted changes...")

@@ -1,3 +1,4 @@
-#repo-name branch-name
-rccl    drop/2025-08
-amd-anp v1.1.0-5
+#repo-name  branch-name
+amd-dev     main
+rccl        drop/2025-08
+amd-anp     v1.1.0-5
