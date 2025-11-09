@@ -30,9 +30,23 @@ export OMPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/
 export RCCL_HOME=/home/dn/amd-dev/dn/rccl/
 export RCCL_INSTALL_DIR=${RCCL_HOME}/build/release/
 export ROCM_HOME=/opt/rocm-7.0.1/
-# build rccl & rccl-tests
-cd /home/dn/amd-dev/dn/rccl && sudo rm -rf build && ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel ${NPKIT_FLAG}
+
+# checkout git rccl to drop/2025-08
+cd ~/amd-dev/dn/rccl/
+git checkout drop/2025-08
+git switch -c drop/2025-08
+
+# build rccl based on drop/2025-08
+cd /home/dn/amd-dev/dn/rccl && sudo rm -rf build && ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel --amdgpu_targets gfx950 ${NPKIT_FLAG}
+
+# build rccl-tests
 cd /home/dn/amd-dev/dn/rccl-tests/ && sudo rm -rf build && make MPI=1 MPI_HOME=${OMPI_HOME} NCCL_HOME=${RCCL_INSTALL_DIR} -j
+
+# checkout amd-anp to v1.1.0-5
+cd ~/amd-dev/dn/amd-anp
+git checkout tags/v1.1.0-5
+git switch -c v1.1.0-5
+
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
 cd /home/dn/amd-dev/dn/amd-anp && sudo rm -rf build && sudo make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}
 cd /home/dn/amd-dev/dn/amd-anp && sudo make RCCL_HOME=${RCCL_HOME} ROCM_PATH=${ROCM_HOME} install
