@@ -6,6 +6,7 @@ Usage: build-cluster.py -s <servers-list> -b <branch-name>
 """
 
 import argparse
+import os
 import subprocess
 import sys
 import threading
@@ -249,6 +250,28 @@ def build_worker(server: str, branch: str, npkit: bool,
             failed_list.append(server)
 
 
+def read_servers_from_file(file_path: str) -> List[str]:
+    """
+    Read server IPs/hostnames from a file (one per line)
+    
+    Args:
+        file_path: Path to the file containing server list
+        
+    Returns:
+        List of server IPs/hostnames
+    """
+    try:
+        with open(file_path, 'r') as f:
+            servers = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
+        return servers
+    except FileNotFoundError:
+        print_error(f"Server list file not found: {file_path}")
+        return []
+    except Exception as e:
+        print_error(f"Error reading server list file: {e}")
+        return []
+
+
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(
@@ -267,8 +290,14 @@ Description:
   4. Runs dn/build.sh to build RCCL and dependencies
   
   All servers are built in parallel using separate threads for faster execution.
+  
+  Server List:
+  - If -s option is not provided, servers are read from server-list.txt
+  - The file should contain one server IP/hostname per line
+  - Lines starting with '#' are treated as comments and ignored
 
 Examples:
+  %(prog)s -b feature/new-optimization
   %(prog)s -s "192.168.1.10,192.168.1.11,192.168.1.12" -b feature/new-optimization
   %(prog)s -s "server1,server2" -b main --npkit
         """
@@ -276,8 +305,7 @@ Examples:
     
     parser.add_argument(
         "-s", "--servers",
-        required=True,
-        help="Comma-separated list of server IPs or hostnames (e.g., '192.168.1.10,192.168.1.11')"
+        help="Comma-separated list of server IPs or hostnames (e.g., '192.168.1.10,192.168.1.11'). If not provided, reads from server-list.txt"
     )
     
     parser.add_argument(
@@ -310,10 +338,19 @@ Examples:
     print()
     
     # Parse server list
-    servers = [s.strip() for s in args.servers.split(",") if s.strip()]
+    if args.servers:
+        # Servers provided via command line
+        servers = [s.strip() for s in args.servers.split(",") if s.strip()]
+        print_info("Using servers from command line")
+    else:
+        # Read servers from file
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        server_file = os.path.join(script_dir, "server-list.txt")
+        print_info(f"Reading servers from {server_file}")
+        servers = read_servers_from_file(server_file)
     
     if not servers:
-        print_error("No valid servers provided")
+        print_error("No valid servers provided or found in server-list.txt")
         sys.exit(1)
     
     if args.npkit:
