@@ -51,6 +51,7 @@ cd ~/amd-dev/dn/rccl/
 git fetch -p
 echo "Checking out RCCL: ${RCCL_BRANCH}"
 git checkout origin/${RCCL_BRANCH}
+git pull --rebase origin
 
 # build rccl based on specified branch
 cd /home/dn/amd-dev/dn/rccl && sudo rm -rf build && ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel --amdgpu_targets gfx950 ${NPKIT_FLAG}
@@ -63,6 +64,7 @@ cd ~/amd-dev/dn/amd-anp
 git fetch -p
 echo "Checking out AMD-ANP: ${AMD_ANP_BRANCH}"
 git checkout origin/${AMD_ANP_BRANCH}
+git pull --rebase origin
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
 cd /home/dn/amd-dev/dn/amd-anp && sudo rm -rf build && sudo make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}

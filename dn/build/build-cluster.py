@@ -119,10 +119,13 @@ def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd
     print_info(f"Starting build({npkit_flag}, {rccl_flag}, {amd_anp_flag})")
     ssh_commands = f"""
 set -e
+
 cd /home/dn/amd-dev
 echo "Fetching latest changes..."
 git fetch -p
-git checkout {branch}
+git checkout origin/{branch}
+git pull --rebase origin
+
 echo "Starting build..."
 cd /home/dn/amd-dev
 ./dn/build/build.sh {npkit_flag} {rccl_flag} {amd_anp_flag}
