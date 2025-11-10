@@ -1,0 +1,250 @@
+Variable Name,Prefix,Category,Default Value,Source File,Line Number,Description
+NCCL_CONF_FILE,NCCL,Configuration,~/.rccl.conf or /etc/rccl.conf,src/misc/param.cc,54,Path to RCCL configuration file
+NCCL_HOSTID,NCCL,Configuration,-,src/misc/utils.cc,87,Host identifier for multi-node communication
+NCCL_LAUNCH_MODE,NCCL,Configuration,-,src/init.cc,1790,Launch mode: PARALLEL or GROUP
+NCCL_COMM_ID,NCCL,Configuration,-,src/bootstrap.cc,97,Communication ID for multi-process mode
+NCCL_DEBUG,NCCL,Logging,-,src/debug.cc,41,Debug log level (VERSION WARN INFO TRACE)
+NCCL_DEBUG_SUBSYS,NCCL,Logging,-,src/debug.cc,67,Debug subsystems filter
+NCCL_DEBUG_FILE,NCCL,Logging,-,src/debug.cc,220,Redirect debug output to file
+NCCL_DEBUG_TIMESTAMP_LEVELS,NCCL,Logging,-,src/debug.cc,131,Enable timestamps in debug logs
+NCCL_DEBUG_TIMESTAMP_FORMAT,NCCL,Logging,-,src/debug.cc,167,Timestamp format for debug logs
+NCCL_WARN_ENABLE_DEBUG_INFO,NCCL,Logging,-,src/debug.cc,121,Enable debug info in warnings
+NCCL_SET_THREAD_NAME,NCCL,Logging,0,src/debug.cc,404,Set thread names for debugging
+RCCL_LOG_LEVEL,RCCL,Logging,1,src/misc/recorder.cc,84,RCCL logging verbosity level
+RCCL_LOG_ROCTX,RCCL,Logging,0,src/misc/roctx.cc,106,Enable ROCTX logging
+RCCL_REPLAY_FILE,RCCL,Logging,-,src/misc/recorder.cc,77,File path for replay recording
+NCCL_ALGO,NCCL,Algorithm,-,src/graph/tuning.cc,701,Force specific algorithm
+NCCL_PROTO,NCCL,Algorithm,-,src/graph/tuning.cc,696,Force specific protocol
+RCCL_OVERRIDE_PROTO,RCCL,Algorithm,-,src/rccl_wrap.cc,162,Override protocol selection
+RCCL_OVERRIDE_ALGO,RCCL,Algorithm,-,src/rccl_wrap.cc,187,Override algorithm selection
+NCCL_THREAD_THRESHOLDS,NCCL,Algorithm,-,src/graph/tuning.cc,842,Thread count thresholds
+NCCL_NTHREADS,NCCL,Performance,-2,src/graph/tuning.cc,14,Number of threads per block
+NCCL_LL128_NTHREADS,NCCL,Performance,-2,src/graph/tuning.cc,15,Threads for LL128 protocol
+RCCL_CHANNEL_TUNING_ENABLE,RCCL,Performance,1,src/rccl_wrap.cc,113,Enable channel tuning
+NCCL_SOCKET_IFNAME,NCCL,Network,-,src/misc/socket.cc,363,Network interface name(s)
+NCCL_SOCKET_FAMILY,NCCL,Network,-,src/misc/socket.cc,121,Force IPv4/IPv6
+NCCL_SOCKET_NTHREADS,NCCL,Network,-2,src/transport/net_socket.cc,131,Number of socket threads
+NCCL_NSOCKS_PERTHREAD,NCCL,Network,-2,src/transport/net_socket.cc,130,Sockets per thread
+NCCL_SOCKET_INLINE,NCCL,Network,128,src/transport/net_socket.cc,128,Inline message size
+NCCL_SOCKET_MIN_TASKSIZE,NCCL,Network,65536,src/transport/net_socket.cc,129,Min task size for socket
+NCCL_SOCKET_RETRY_CNT,NCCL,Network,34,src/misc/socket.cc,19,Socket retry count
+NCCL_SOCKET_RETRY_SLEEP_MSEC,NCCL,Network,100,src/misc/socket.cc,20,Socket retry timeout
+NCCL_SOCKET_RCVBUF,NCCL,Network,-1,src/misc/socket.cc,465,Socket receive buffer size
+NCCL_SOCKET_SNDBUF,NCCL,Network,-1,src/misc/socket.cc,466,Socket send buffer size
+RCCL_SOCKET_REUSEADDR,RCCL,Network,0,src/misc/socket.cc,30,Enable SO_REUSEADDR
+RCCL_SOCKET_LINGER,RCCL,Network,-1,src/misc/socket.cc,31,Socket linger timeout
+NCCL_NET,NCCL,Network,-,src/init.cc,2193,Network backend to use
+NCCL_NET_PLUGIN,NCCL,Network,-,src/plugin/net.cc,215,Network plugin library path
+NCCL_NET_PLUGIN_REF_COUNT,NCCL,Network,1,src/plugin/net.cc,33,Network plugin reference counting
+NCCL_NET_SHARED_BUFFERS,NCCL,Network,-2,src/transport/net.cc,179,Enable shared network buffers
+NCCL_NET_SHARED_COMMS,NCCL,Network,1,src/transport/net.cc,180,Share network communicators
+RCCL_NET_CONTIGUOUS_MEM,RCCL,Network,0,src/transport/net.cc,183,Use contiguous memory
+NCCL_NET_OPTIONAL_RECV_COMPLETION,NCCL,Network,1,src/transport/net.cc,199,Optional receive completion
+NCCL_NET_OVERHEAD,NCCL,Network,-2,src/graph/tuning.cc,475,Network overhead estimate
+NCCL_NET_MERGE_LEVEL,NCCL,Network,PATH_PORT,src/graph/topo.cc,1297,Network device merge level
+NCCL_NET_FORCE_MERGE,NCCL,Network,-,src/graph/topo.cc,1299,Force network device merging
+NCCL_NET_GDR_READ,NCCL,Network,-2,src/graph/paths.cc,404,Enable GPUDirect RDMA read
+NCCL_NET_GDR_C2C,NCCL,Network,1,src/graph/paths.cc,409,Enable GDR for chip-to-chip
+NCCL_NET_GDR_LEVEL,NCCL,Network,PATH_PHB,tools/topo_expl/model.cpp,230,GDR support level
+NCCL_NET_FORCE_FLUSH,NCCL,Network,0,src/graph/paths.cc,522,Force network flush operations
+NCCL_NET_DISABLE_INTRA,NCCL,Network,1,src/graph/paths.cc,551,Disable intra-node network
+RCCL_NET_HDP_FLUSH,RCCL,Network,0,src/transport/net.cc,1493,Enable HDP flush
+RCCL_ENABLE_INTRANET,RCCL,Network,-2,src/graph/paths.cc,829,Enable intra-node network
+RCCL_INTRANET_THRESHOLD,RCCL,Network,8388608,src/enqueue.cc,634,Threshold for intra-node network
+NCCL_OOB_NET_IFNAME,NCCL,Network,-,src/bootstrap.cc,491,Out-of-band network interface
+NCCL_OOB_NET_ENABLE,NCCL,Network,0,src/bootstrap.cc,91,Enable out-of-band network
+NCCL_TOPO_FILE,NCCL,Topology,-,src/graph/topo.cc,1416,XML topology file path
+NCCL_TOPO_DUMP_FILE,NCCL,Topology,-,src/graph/topo.cc,1514,Dump topology to file
+NCCL_TOPO_DUMP_FILE_RANK,NCCL,Topology,0,src/graph/topo.cc,787,Rank to dump topology from
+NCCL_GRAPH_FILE,NCCL,Topology,-,src/graph/search.cc,1059,Graph file to load
+NCCL_GRAPH_DUMP_FILE,NCCL,Topology,-,src/graph/search.cc,1325,Dump graph to file
+NCCL_GRAPH_DUMP_FILE_RANK,NCCL,Topology,0,src/init.cc,1051,Rank to dump graph from
+NCCL_RINGS,NCCL,Topology,-,src/graph/search.cc,1072,Custom ring topology
+RCCL_TREES,RCCL,Topology,-,src/graph/search.cc,1073,Custom tree topology
+NCCL_RINGS_REMAP,NCCL,Topology,-,src/graph/search.cc,1098,Ring remapping specification
+NCCL_CROSS_NIC,NCCL,Topology,2,src/graph/search.cc,19,Cross-NIC communication
+NCCL_IGNORE_CPU_AFFINITY,NCCL,Topology,0,src/graph/topo.cc,1646,Ignore CPU affinity
+RCCL_DUMP_ROME_MODEL_FILE,RCCL,Topology,-,src/graph/rome_models.cc,1695,Dump Rome model to file
+RCCL_MODEL_MATCHING_DISABLE,RCCL,Topology,0,src/graph/search.cc,1020,Disable model matching
+RCCL_MODEL_REVERSAL_DISABLE,RCCL,Topology,0,src/graph/rome_models.cc,1194,Disable model reversal
+RCCL_DISABLE_RAIL_TREES,RCCL,Topology,0,src/graph/rome_models.cc,1834,Disable rail trees
+RCCL_OUTPUT_TREES,RCCL,Topology,0,src/graph/connect.cc,711,Output tree topology info
+NCCL_IB_DISABLE,NCCL,InfiniBand,0,src/transport/net_ib.cc,456,Disable InfiniBand transport
+NCCL_IB_HCA,NCCL,InfiniBand,-,src/transport/net_ib.cc,638,InfiniBand device:port spec
+NCCL_IB_GID_INDEX,NCCL,InfiniBand,-1,src/transport/net_ib.cc,116,GID index for RoCE
+NCCL_IB_ROUTABLE_FLID_GID_INDEX,NCCL,InfiniBand,1,src/transport/net_ib.cc,117,Routable FLID GID index
+NCCL_IB_ROCE_VERSION_NUM,NCCL,InfiniBand,2,src/transport/net_ib.cc,118,RoCE version (1 or 2)
+NCCL_IB_TIMEOUT,NCCL,InfiniBand,20,src/transport/net_ib.cc,119,IB timeout value
+NCCL_IB_RETRY_CNT,NCCL,InfiniBand,7,src/transport/net_ib.cc,120,IB retry count
+NCCL_IB_PKEY,NCCL,InfiniBand,0,src/transport/net_ib.cc,121,IB partition key
+NCCL_IB_USE_INLINE,NCCL,InfiniBand,0,src/transport/net_ib.cc,122,Use inline data
+NCCL_IB_SL,NCCL,InfiniBand,-1,src/transport/net_ib.cc,123,Service level
+NCCL_IB_TC,NCCL,InfiniBand,-1,src/transport/net_ib.cc,124,Traffic class
+NCCL_IB_AR_THRESHOLD,NCCL,InfiniBand,8192,src/transport/net_ib.cc,125,Adaptive routing threshold
+NCCL_IB_PCI_RELAXED_ORDERING,NCCL,InfiniBand,2,src/transport/net_ib.cc,126,PCI relaxed ordering
+NCCL_IB_ADAPTIVE_ROUTING,NCCL,InfiniBand,-2,src/transport/net_ib.cc,127,Enable adaptive routing
+NCCL_IB_FIFO_TC,NCCL,InfiniBand,-1,src/transport/net_ib.cc,128,FIFO traffic class
+NCCL_IB_RETURN_ASYNC_EVENTS,NCCL,InfiniBand,1,src/transport/net_ib.cc,129,Return async events
+NCCL_IB_ECE_ENABLE,NCCL,InfiniBand,1,src/transport/net_ib.cc,130,Enhanced connection establishment
+NCCL_IB_DATA_DIRECT,NCCL,InfiniBand,1,src/transport/net_ib.cc,131,Direct data path
+NCCL_IB_MERGE_VFS,NCCL,InfiniBand,1,src/transport/net_ib.cc,457,Merge virtual functions
+NCCL_IB_MERGE_NICS,NCCL,InfiniBand,1,src/transport/net_ib.cc,458,Merge NICs
+NCCL_IB_QPS_PER_CONNECTION,NCCL,InfiniBand,1,src/transport/net_ib.cc,1210,Queue pairs per connection
+NCCL_IB_WARN_RAIL_LOCAL,NCCL,InfiniBand,0,src/transport/net_ib.cc,1614,Warn on rail locality issues
+NCCL_IB_SPLIT_DATA_ON_QPS,NCCL,InfiniBand,0,src/transport/net_ib.cc,2100,Split data across QPs
+NCCL_IB_ADDR_FAMILY,NCCL,InfiniBand,-,src/transport/net_ib.cc,218,Address family for IB
+NCCL_IB_ADDR_RANGE,NCCL,InfiniBand,-,src/transport/net_ib.cc,240,Address range for IB
+NCCL_IB_MQP_RETRY_ALL,NCCL,InfiniBand,0,src/misc/ibvwrap.cc,95,Retry all for multi-QP
+NCCL_IB_MQP_RETRY_CNT,NCCL,InfiniBand,34,src/misc/ibvwrap.cc,96,Multi-QP retry count
+NCCL_IB_MQP_RETRY_SLEEP_MSEC,NCCL,InfiniBand,100,src/misc/ibvwrap.cc,97,Multi-QP retry sleep time
+RCCL_FORCE_ENABLE_GDRDMA,RCCL,InfiniBand,-1,src/transport/net_ib.cc,788,Force enable GPUDirect RDMA
+RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING,RCCL,InfiniBand,1,src/transport/net_ib.cc,1659,GDR flush without relaxed ordering
+NCCL_BUFFSIZE,NCCL,Performance,-2,src/init.cc,1014,Buffer size for collectives
+NCCL_LL_BUFFSIZE,NCCL,Performance,-2,src/init.cc,1015,Buffer size for LL protocol
+NCCL_LL128_BUFFSIZE,NCCL,Performance,-2,src/init.cc,1016,Buffer size for LL128 protocol
+NCCL_WORK_FIFO_BYTES,NCCL,Performance,default,src/init.cc,555,Work FIFO size in bytes
+NCCL_WORK_ARGS_BYTES,NCCL,Performance,INT64_MAX,src/init.cc,556,Work args buffer size
+NCCL_AGG_CHANNEL_SIZE,NCCL,Performance,-2,src/init.cc,550,Aggregate channel size
+NCCL_CHUNK_SIZE,NCCL,Performance,0,src/enqueue.cc,916,Chunk size for operations
+NCCL_MIN_NCHANNELS,NCCL,Performance,-2,src/graph/connect.cc,523,Minimum number of channels
+NCCL_MAX_NCHANNELS,NCCL,Performance,-2,src/graph/connect.cc,524,Maximum number of channels
+NCCL_MIN_NRINGS,NCCL,Performance,-2,src/graph/connect.cc,520,Minimum number of rings
+NCCL_MAX_NRINGS,NCCL,Performance,-2,src/graph/connect.cc,521,Maximum number of rings
+NCCL_NCHANNELS_PER_NET_PEER,NCCL,Performance,-1,src/graph/paths.cc,939,Channels per network peer
+NCCL_NCHANNELS_PER_PEER,NCCL,Performance,-2,src/graph/paths.cc,940,Channels per peer
+NCCL_MIN_P2P_NCHANNELS,NCCL,Performance,1,src/graph/paths.cc,981,Minimum P2P channels
+NCCL_MAX_P2P_NCHANNELS,NCCL,Performance,MAXCHANNELS,src/graph/paths.cc,982,Maximum P2P channels
+NCCL_UNPACK_DOUBLE_NCHANNELS,NCCL,Performance,1,src/graph/connect.cc,710,Double channels for unpack
+NCCL_NVLS_NCHANNELS,NCCL,Performance,UNDEF,src/init.cc,94,NVLS channel count
+NCCL_P2P_DISABLE,NCCL,P2P,-,src/graph/paths.cc,268,Disable P2P transport
+NCCL_P2P_LEVEL,NCCL,P2P,-,src/graph/paths.cc,268,P2P level
+NCCL_P2P_READ_ENABLE,NCCL,P2P,-2,src/transport/p2p.cc,328,Enable P2P read operations
+NCCL_P2P_DIRECT_DISABLE,NCCL,P2P,0,src/transport/p2p.cc,329,Disable P2P direct access
+NCCL_P2P_USE_CUDA_MEMCPY,NCCL,P2P,0,src/transport/p2p.cc,122,Use CUDA memcpy for P2P
+NCCL_P2P_LL_THRESHOLD,NCCL,P2P,16384,src/enqueue.cc,914,P2P LL protocol threshold
+NCCL_P2P_NET_CHUNKSIZE,NCCL,P2P,131072,src/init.cc,1018,P2P network chunk size
+NCCL_P2P_PCI_CHUNKSIZE,NCCL,P2P,131072,src/init.cc,1019,P2P PCI chunk size
+NCCL_P2P_NVL_CHUNKSIZE,NCCL,P2P,524288,src/init.cc,1020,P2P NVLink chunk size
+RCCL_P2P_NET_DISABLE,RCCL,P2P,1,src/init.cc,547,Disable P2P over network
+RCCL_P2P_NET_THRESHOLD,RCCL,P2P,131072,src/enqueue.cc,915,P2P network threshold
+RCCL_P2P_BATCH_ENABLE,RCCL,P2P,0,src/enqueue.cc,931,Enable P2P batching
+RCCL_P2P_BATCH_THRESHOLD,RCCL,P2P,65536,src/enqueue.cc,925,P2P batch threshold
+NCCL_P2P_PXN_LEVEL,NCCL,P2P,2,src/graph/search.cc,1368,P2P PXN level
+NCCL_PXN_DISABLE,NCCL,P2P,1,src/graph/paths.cc,610,Disable PXN
+NCCL_PXN_C2C,NCCL,P2P,0,src/graph/paths.cc,682,PXN chip-to-chip
+NCCL_IGNORE_DISABLED_P2P,NCCL,P2P,0,src/graph/paths.cc,260,Ignore disabled P2P paths
+NCCL_MAX_CTAS,NCCL,GPU,UNDEF,src/init.cc,1854,Maximum CTAs (thread blocks)
+NCCL_MIN_CTAS,NCCL,GPU,UNDEF,src/init.cc,1855,Minimum CTAs
+NCCL_CGA_CLUSTER_SIZE,NCCL,GPU,UNDEF,src/init.cc,1852,CGA cluster size
+NCCL_SYM_CTAS,NCCL,GPU,0,src/symmetric.cc,84,Symmetric CTAs
+NCCL_SYM_KERNEL,NCCL,GPU,-,src/symmetric.cc,65,Symmetric kernel name
+NCCL_L1_SHARED_MEMORY_CARVEOUT,NCCL,GPU,0,src/enqueue.cc,83,L1/shared memory carveout
+NCCL_SET_STACK_SIZE,NCCL,GPU,0 or 1,src/init.cc,1846,Set kernel stack size
+RCCL_STACK_SIZE_OVERRIDE,RCCL,GPU,0,src/init.cc,1850,Override stack size
+NCCL_SHM_DISABLE,NCCL,Transport,0,src/transport/shm.cc,65,Disable shared memory transport
+NCCL_SHM_USE_CUDA_MEMCPY,NCCL,Transport,0,src/transport/shm.cc,66,Use CUDA memcpy for SHM
+NCCL_SHM_MEMCPY_MODE,NCCL,Transport,SEND_SIDE,src/transport/shm.cc,67,SHM memcpy mode
+NCCL_SHM_LOCALITY,NCCL,Transport,RECV_SIDE,src/transport/shm.cc,70,SHM locality mode
+NCCL_DMABUF_ENABLE,NCCL,Memory,0,src/misc/rocmwrap.cc,22,Enable DMA-BUF
+RCCL_FORCE_ENABLE_DMABUF,RCCL,Memory,0,src/misc/rocmwrap.cc,23,Force enable DMA-BUF
+NCCL_CUMEM_ENABLE,NCCL,Memory,0,src/misc/rocmwrap.cc,37,Enable CUDA memory pool
+NCCL_CUMEM_HOST_ENABLE,NCCL,Memory,-1,src/misc/rocmwrap.cc,38,Enable CUDA host memory
+NCCL_LEGACY_CUDA_REGISTER,NCCL,Memory,0,src/transport/p2p.cc,102,Use legacy CUDA registration
+NCCL_LOCAL_REGISTER,NCCL,Memory,0,src/register/register.cc,21,Enable local registration
+NCCL_GRAPH_REGISTER,NCCL,Memory,0,src/enqueue.cc,322,Enable graph registration
+NCCL_GDRCOPY_ENABLE,NCCL,GDR,0,src/init.cc,118,Enable GDRCopy
+NCCL_GDRCOPY_SYNC_ENABLE,NCCL,GDR,1,src/transport/net.cc,261,Enable GDRCopy sync
+NCCL_GDRCOPY_FLUSH_ENABLE,NCCL,GDR,0,src/transport/net.cc,263,Enable GDRCopy flush
+NCCL_GDRCOPY_FIFO_ENABLE,NCCL,GDR,1,src/init.cc,553,Enable GDRCopy FIFO
+NCCL_GDR_FLUSH_DISABLE,NCCL,GDR,0,src/transport/net_ib.cc,1658,Disable GDR flush
+NCCL_NVLS_ENABLE,NCCL,NVLS,2,src/transport/nvls.cc,151,Enable NVLS
+NCCL_NVLS_CHUNKSIZE,NCCL,NVLS,131072,src/transport/nvls.cc,152,NVLS chunk size
+NCCL_NVLSTREE_MAX_CHUNKSIZE,NCCL,NVLS,-2,src/enqueue.cc,2207,NVLS tree max chunk size
+NCCL_NVB_DISABLE,NCCL,NVB,0,src/graph/paths.cc,36,Disable NVBridge
+NCCL_NVB_PRECONNECT,NCCL,NVB,0,src/init.cc,1053,Pre-connect NVBridge
+NCCL_COLLNET_ENABLE,NCCL,CollNet,UNDEF,src/init.cc,92,Enable CollNet
+NCCL_COLLNET_NODE_THRESHOLD,NCCL,CollNet,2,src/init.cc,1052,CollNet node threshold
+RCCL_MSCCL_ENABLE,RCCL,MSCCL,1,src/misc/msccl/msccl_lifecycle.cc,30,Enable MSCCL
+RCCL_MSCCL_FORCE_ENABLE,RCCL,MSCCL,0,src/misc/msccl/msccl_lifecycle.cc,31,Force enable MSCCL
+RCCL_MSCCL_ENABLE_SINGLE_PROCESS,RCCL,MSCCL,1,src/misc/msccl/msccl_lifecycle.cc,32,Enable MSCCL single process
+RCCL_MSCCL_WORK_FIFO_DEPTH,RCCL,MSCCL,262144,src/misc/msccl/msccl_setup.cc,19,MSCCL work FIFO depth
+RCCL_MSCCL_FORCE_FULLOPS,RCCL,MSCCL,0,src/misc/msccl/msccl_setup.cc,409,Force full operations
+MSCCL_ALGORITHM_DIR,MSCCL,MSCCL,-,src/misc/msccl/msccl_lifecycle.cc,140,MSCCL algorithm directory
+MSCCL_SCHEDULER,MSCCL,MSCCL,-,src/misc/msccl/msccl_lifecycle.cc,219,MSCCL scheduler path
+RCCL_MSCCLPP_ENABLE,RCCL,MSCCLPP,varies,src/init.cc,112,Enable MSCCLPP
+RCCL_MSCCLPP_FORCE_ENABLE,RCCL,MSCCLPP,0,src/init.cc,113,Force enable MSCCLPP
+RCCL_MSCCLPP_THRESHOLD,RCCL,MSCCLPP,16777216,src/init.cc,108,MSCCLPP threshold
+MSCCLPP_DEBUG,MSCCLPP,MSCCLPP,-,ext-src/mscclpp,-,MSCCLPP debug level
+MSCCLPP_READ_ALLRED,MSCCLPP,MSCCLPP,-,ext-src patches,-,Enable read-based allreduce
+MSCCLPP_HIERARCHICAL_ALLRED,MSCCLPP,MSCCLPP,-,ext-src patches,-,Enable hierarchical allreduce
+MSCCLPP_DISABLE_CHANNEL_CACHE,MSCCLPP,MSCCLPP,-,ext-src patches,-,Disable channel cache
+MSCCLPP_DISABLE_REMOTE_UBR,MSCCLPP,MSCCLPP,-,ext-src patches,-,Disable remote UBR
+NCCL_MNNVL_ENABLE,NCCL,MNNVL,2,src/init.cc,1057,Enable MNNVL
+NCCL_MNNVL_UUID,NCCL,MNNVL,-1,src/init.cc,918,MNNVL UUID
+NCCL_MNNVL_CLIQUE_ID,NCCL,MNNVL,-1,src/init.cc,919,MNNVL clique ID
+NCCL_MNNVL_SCATTER_NETS_ENABLE,NCCL,MNNVL,1,src/graph/search.cc,544,Enable scatter nets
+NCCL_RAS_ENABLE,NCCL,RAS,1,src/bootstrap.cc,621,Enable RAS
+NCCL_RAS_ADDR,NCCL,RAS,-,src/ras/client_support.cc,149,RAS server address
+NCCL_RAS_TIMEOUT_FACTOR,NCCL,RAS,1,src/ras/ras.cc,81,RAS timeout multiplier
+NCCL_UID_STAGGER_RATE,NCCL,RAS,7000,src/bootstrap.cc,618,UID stagger rate
+NCCL_UID_STAGGER_THRESHOLD,NCCL,RAS,256,src/bootstrap.cc,619,UID stagger threshold
+NCCL_PROFILER_PLUGIN,NCCL,Profiling,-,src/plugin/profiler.cc,50,Profiler plugin library
+NCCL_TUNER_PLUGIN,NCCL,Profiling,-,src/plugin/tuner.cc,53,Tuner plugin library
+NCCL_TUNER_CONFIG_FILE,NCCL,Profiling,-,ext-tuner/example,309,Tuner config file
+RCCL_ENABLE_PROXY_TRACE,RCCL,Profiling,0,src/init.cc,245,Enable proxy tracing
+RCCL_KERNEL_COLL_TRACE_ENABLE,RCCL,Profiling,0,src/init.cc,247,Enable kernel collective tracing
+RCCL_KERNEL_COLL_TRACE_THREAD_ENABLE,RCCL,Profiling,0,src/init.cc,248,Enable thread-level kernel tracing
+RCCL_ENABLE_CONTEXT_TRACKING,RCCL,Profiling,0,src/init.cc,249,Enable context tracking
+RCCL_LATENCY_PROFILER,RCCL,Profiling,-,src/misc/latency_profiler,-,Enable latency profiler
+NCCL_COLLTRACE_CHECK_INTERVAL_MS,NCCL,Profiling,10,src/misc/latency_profiler,11,Collection trace check interval
+NCCL_COLLTRACE_RECORD_MAX,NCCL,Profiling,100,src/misc/latency_profiler,13,Max collection trace records
+NCCL_COLLTRACE_MAX_DUMP_SIZE,NCCL,Profiling,20,src/misc/latency_profiler,14,Max dump size for traces
+NCCL_COLLTRACE_DUMP_INTERVAL_SEC,NCCL,Profiling,300,src/misc/latency_profiler,15,Dump interval for traces
+NPKIT_DUMP_DIR,NPKIT,Profiling,-,src/init.cc,2725,NPKit dump directory
+NCCL_PROFILE_EVENT_MASK,NCCL,Profiling,-,ext-profiler/example,59,Event mask for profiling
+NCCL_PROFILE_GROUP_POOL_SIZE,NCCL,Profiling,-,ext-profiler/example,62,Group pool size
+NCCL_PROFILE_COLL_POOL_SIZE,NCCL,Profiling,-,ext-profiler/example,65,Collective pool size
+NCCL_PROFILE_P2P_POOL_SIZE,NCCL,Profiling,-,ext-profiler/example,68,P2P pool size
+NCCL_PROFILE_PROXY_CTRL_POOL_SIZE,NCCL,Profiling,-,ext-profiler/example,71,Proxy control pool size
+NCCL_PROFILE_PROXY_DETACH_POOL_SIZE,NCCL,Profiling,-,ext-profiler/example,74,Proxy detach pool size
+NCCL_PROFILE_DUMP_FILE,NCCL,Profiling,-,ext-profiler/example,142,Profile dump file
+NCCL_PROXY_APPEND_BATCH_SIZE,NCCL,Proxy,16,src/proxy.cc,801,Proxy append batch size
+NCCL_PROXY_DUMP_SIGNAL,NCCL,Proxy,-1,src/proxy.cc,936,Signal for proxy dump
+NCCL_PROGRESS_APPENDOP_FREQ,NCCL,Proxy,8,src/proxy.cc,937,Progress append operation frequency
+NCCL_CREATE_THREAD_CONTEXT,NCCL,Proxy,0,src/proxy.cc,899,Create thread context
+NCCL_GROUP_CUDA_STREAM,NCCL,Group,default,src/init.cc,86,Group CUDA stream mode
+NCCL_WIN_ENABLE,NCCL,Group,1,src/init.cc,91,Enable window operations
+NCCL_WIN_STRIDE,NCCL,Group,-1,src/group.cc,225,Window stride
+NCCL_RUNTIME_CONNECT,NCCL,Group,1,src/init.cc,90,Runtime connection mode
+NCCL_COMM_BLOCKING,NCCL,Group,UNDEF,src/init.cc,89,Blocking communication mode
+NCCL_CONNECT_ROUND_MAX_PEERS,NCCL,Connection,128,src/transport.cc,87,Max peers per connection round
+NCCL_REPORT_CONNECT_PROGRESS,NCCL,Connection,0,src/transport.cc,88,Report connection progress
+RCCL_PIVOT_ALLTOALL_ENABLE,RCCL,Collective,1,src/init.cc,548,Enable pivot alltoall
+RCCL_ALL_TO_ALL_PIVOT_ENABLE,RCCL,Collective,0,src/collectives.cc,189,Enable alltoall pivot
+RCCL_LL128_FORCE_ENABLE,RCCL,Collective,0,src/init.cc,549,Force enable LL128
+NCCL_LL128_C2C,NCCL,Collective,1,src/graph/tuning.cc,484,LL128 chip-to-chip
+RCCL_DIRECT_ALLGATHER_THRESHOLD,RCCL,Collective,75497472,src/rccl_wrap.cc,36,Direct allgather threshold
+RCCL_PIPELINE_ALL_DATA_TYPES,RCCL,Collective,0,src/rccl_wrap.cc,31,Pipeline all data types
+RCCL_DISABLE_REDUCE_COPY_PIPELINING,RCCL,Collective,0,src/rccl_wrap.cc,35,Disable reduce-copy pipelining
+NCCL_ALLOC_P2P_NET_LL_BUFFERS,NCCL,Collective,0,src/init.cc,1054,Allocate P2P network LL buffers
+NCCL_PAT_ENABLE,NCCL,Collective,0,src/graph/tuning.cc,463,Enable PAT
+NCCL_LAUNCH_ORDER_IMPLICIT,NCCL,Launch,0,src/enqueue.cc,1554,Implicit launch order
+NCCL_LAUNCH_RACE_FATAL,NCCL,Launch,1,src/misc/strongstream.cc,137,Launch race detection is fatal
+NCCL_MEM_SYNC_DOMAIN,NCCL,Launch,Remote,src/enqueue.cc,1727,Memory sync domain
+NCCL_NVLINK_UTIL_CENTRIC_SCHED_ENABLE,NCCL,Launch,0,src/enqueue.cc,1730,NVLink utilization-centric scheduling
+NCCL_CTA_POLICY,NCCL,Launch,UNDEF,src/init.cc,93,CTA policy
+NCCL_GRAPH_MIXING_SUPPORT,NCCL,Graph,0,src/misc/strongstream.cc,136,Graph mixing support
+NCCL_GRAPH_HELPER_DISABLE,NCCL,Graph,0,src/init.cc,551,Disable graph helper
+NCCL_COMM_SPLIT_SHARE_RESOURCES,NCCL,Communication,UNDEF,src/init.cc,1883,Share resources on comm split
+NCCL_COMM_SHRINK_SHARE_RESOURCES,NCCL,Communication,UNDEF,src/init.cc,1884,Share resources on comm shrink
+NCCL_CHECK_POINTERS,NCCL,Testing,0,src/init.cc,88,Enable pointer checking
+RCCL_INJECT_FAULTS,RCCL,Testing,0,src/init.cc,600,Inject faults for testing
+CUDA_LAUNCH_BLOCKING,CUDA,Testing,-,src/misc/rocmwrap.cc,84,CUDA blocking kernel launches
+RCCL_ENABLE_SIGNALHANDLER,RCCL,Testing,0,src/misc/signals.cc,68,Enable custom signal handler
+RCCL_ROCR_PATH,RCCL,ROCm,-,src/misc/rocmwrap.cc,95,ROCr runtime path
+HSA_NO_SCRATCH_RECLAIM,HSA,ROCm,-,src/init.cc,135,HSA scratch memory reclaim
+HSA_FORCE_FINE_GRAIN_PCIE,HSA,ROCm,-,src/init.cc,198,Force fine-grain PCIe memory
+RCCL_GFX9_CHEAP_FENCE_OFF,RCCL,ROCm,0,src/init.cc,115,Disable GFX9 cheap fence
+RCCL_USE_ROCM_SMI_LIB,RCCL,ROCm,0,src/misc/rocm_smi_wrap.cc,47,Use ROCm SMI library
+RCCL_PATH,RCCL,Configuration,-,tools/scripts/rcclDiagnostics.py,658,RCCL installation path
+
