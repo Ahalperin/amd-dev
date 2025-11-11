@@ -13,7 +13,7 @@
 #   * NPKIT_FLAGS=0xFFFFFFFFFFFFFFFF: Capture all NPKit events
 #   * Captures: Send/Recv entry/exit, kernel launch, channel ops, primitives
 # - Automatic trace generation:
-#   * Converts NPKit binary traces to JSON for rank 0 and rank 1
+#   * Converts NPKit binary traces to JSON for all ranks combined
 #   * Uses npkit_trace_generator.py from RCCL
 # - Output: NPKit JSON traces + logs (binary dumps excluded from archive)
 # - View: chrome://tracing or Perfetto (https://ui.perfetto.dev)
@@ -27,7 +27,7 @@ WARMUP=${5:-5}
 
 OUTPUT_BASE="/home/dn/amd-dev/rccl_mpi_profile"
 TIMESTAMP=$(date +%Y-%m-%d_%H.%M)
-OUTPUT_DIR="${OUTPUT_BASE}/${TIMESTAMP}"
+OUTPUT_DIR="${OUTPUT_BASE}/${MESSAGE_SIZE}_${TIMESTAMP}"
 
 # Track exit status
 PROFILE_EXIT_CODE=0
@@ -97,11 +97,7 @@ mpirun --np $NP --allow-run-as-root -H $HOSTS \
 -x NCCL_PROTO=SIMPLE \
 -x NPKIT_DUMP_DIR=${OUTPUT_DIR}/npkit \
 -x NPKIT_FLAGS=0xFFFFFFFFFFFFFFFF \
--x NCCL_DEBUG=INFO \
--x NCCL_DEBUG_FILE=${OUTPUT_DIR}/rccl_debug.log \
--x NCCL_TOPO_DUMP_FILE=${OUTPUT_DIR}/rccl.topo.log \
--x NCCL_DEBUG_SUBSYS=GRAPH \
--x NCCL_GRAPH_DUMP_FILE=nccl_graph.xml \
+-x NCCL_GRAPH_DUMP_FILE=${OUTPUT_DIR}/nccl_graph.xml \
 /home/dn/amd-dev/dn/rccl-tests/build/all_reduce_perf -b ${MESSAGE_SIZE} -e ${MESSAGE_SIZE} -f 2 -g 1 -n ${ITERATIONS} -c 1 -w ${WARMUP}
 
 PROFILE_EXIT_CODE=$?
@@ -128,7 +124,7 @@ NPKIT_BASE_DIR="${OUTPUT_DIR}/npkit"
 NPKIT_COUNT=$(find ${NPKIT_BASE_DIR} -type f 2>/dev/null | wc -l)
 echo "Found $NPKIT_COUNT NPKit binary trace files in ${NPKIT_BASE_DIR}"
 
-# Convert NPKit traces to JSON for rank 0 and rank 1
+# Convert NPKit traces to JSON for all ranks
 RCCL_HOME="/home/dn/amd-dev/dn/rccl"
 NPKIT_GENERATOR="${RCCL_HOME}/tools/scripts/npkit_trace_generator.py"
 NPKIT_HEADER="${RCCL_HOME}/src/include/npkit/npkit_event.h"
@@ -140,38 +136,29 @@ if [ $NPKIT_COUNT -gt 0 ]; then
     echo "======================================================================"
     
     # RCCL creates files like: gpu_events_rank_0_buf_0, cpu_events_rank_0_channel_0, etc.
-    # We convert rank 0 and rank 1
-    for RANK in 0 1; do
-        # Check if any files exist for this rank
-        RANK_FILES=$(find ${NPKIT_BASE_DIR} -name "*_rank_${RANK}_*" 2>/dev/null | wc -l)
-        
-        if [ $RANK_FILES -gt 0 ]; then
-            echo "Processing rank ${RANK} (${RANK_FILES} files)..."
-            OUTPUT_JSON_DIR="${OUTPUT_DIR}/npkit_json_rank_${RANK}"
-            mkdir -p "$OUTPUT_JSON_DIR"
-            
-            python3 "$NPKIT_GENERATOR" \
-                --npkit_dump_dir="$NPKIT_BASE_DIR" \
-                --npkit_event_header_path="$NPKIT_HEADER" \
-                --output_dir="$OUTPUT_JSON_DIR" 2>&1 | tee "${OUTPUT_DIR}/npkit_conversion_rank_${RANK}.log"
-            
-            if [ $? -eq 0 ]; then
-                echo "  ✓ Rank ${RANK} trace converted successfully"
-                if [ -f "${OUTPUT_JSON_DIR}/npkit_event_trace.json" ]; then
-                    echo "    Output: ${OUTPUT_JSON_DIR}/npkit_event_trace.json"
-                fi
-            else
-                echo "  ✗ Rank ${RANK} trace conversion failed"
-            fi
-        else
-            echo "No NPKit data found for rank ${RANK}, skipping..."
+    # Convert all ranks at once into a single combined JSON file
+    echo "Processing all ranks together..."
+    OUTPUT_JSON_DIR="${OUTPUT_DIR}/npkit_json"
+    mkdir -p "$OUTPUT_JSON_DIR"
+    
+    python3 "$NPKIT_GENERATOR" \
+        --npkit_dump_dir="$NPKIT_BASE_DIR" \
+        --npkit_event_header_path="$NPKIT_HEADER" \
+        --output_dir="$OUTPUT_JSON_DIR" 2>&1 | tee "${OUTPUT_DIR}/npkit_conversion.log"
+    
+    if [ $? -eq 0 ]; then
+        echo "  ✓ All ranks converted successfully"
+        if [ -f "${OUTPUT_JSON_DIR}/npkit_event_trace.json" ]; then
+            echo "    Output: ${OUTPUT_JSON_DIR}/npkit_event_trace.json"
         fi
-    done
+    else
+        echo "  ✗ Trace conversion failed"
+    fi
     echo "NPKit trace conversion complete!"
 fi
 
 # Create zip file excluding binary NPKit dumps, only include logs and JSON
-ZIP_FILE="${OUTPUT_BASE}/rccl_npkit_profile_${TIMESTAMP}.zip"
+ZIP_FILE="${OUTPUT_BASE}/rccl_npkit_profile_${MESSAGE_SIZE}_${TIMESTAMP}.zip"
 echo ""
 echo "======================================================================"
 echo "Creating archive: $ZIP_FILE"
@@ -182,7 +169,7 @@ echo "Excluding: Binary NPKit dumps (gpu_events_*, cpu_events_*, gpu_clock_*, cp
 if [ -d "${OUTPUT_DIR}" ]; then
     cd ${OUTPUT_BASE}
     # Create zip with logs and JSON files only, exclude binary dumps
-    zip -r "rccl_npkit_profile_${TIMESTAMP}.zip" "${TIMESTAMP}/" \
+    zip -r "rccl_npkit_profile_${MESSAGE_SIZE}_${TIMESTAMP}.zip" "${MESSAGE_SIZE}_${TIMESTAMP}/" \
         -i "*.json" "*.log" "*.txt" "*.xml" \
         -x "*/npkit/gpu_events_*" "*/npkit/cpu_events_*" "*/npkit/gpu_clock_*" "*/npkit/cpu_clock_*" 2>/dev/null
     ZIP_EXIT_CODE=$?
@@ -210,7 +197,7 @@ if [ $PROFILE_EXIT_CODE -eq 0 ] && [ "$NPKIT_COUNT" -gt 0 ]; then
     echo "Results:"
     echo "  - Ranks profiled:       $RANK_COUNT"
     echo "  - NPKit binary files:   $NPKIT_COUNT"
-    echo "  - JSON traces created:  $JSON_COUNT (rank 0 & 1)"
+    echo "  - JSON traces created:  $JSON_COUNT (all ranks combined)"
     echo "  - Archive:              $ZIP_FILE"
     echo ""
     echo "Download with:"
@@ -219,8 +206,7 @@ if [ $PROFILE_EXIT_CODE -eq 0 ] && [ "$NPKIT_COUNT" -gt 0 ]; then
     echo "Analysis:"
     echo ""
     echo "View NPKit traces in chrome://tracing or Perfetto (https://ui.perfetto.dev):"
-    echo "   - Load: npkit_json_rank_0/npkit_event_trace.json"
-    echo "   - Load: npkit_json_rank_1/npkit_event_trace.json"
+    echo "   - Load: npkit_json/npkit_event_trace.json"
     echo ""
     echo "   NPKit shows detailed RCCL internal events:"
     echo "     * Send/Recv entry/exit times"
@@ -236,7 +222,7 @@ if [ $PROFILE_EXIT_CODE -eq 0 ] && [ "$NPKIT_COUNT" -gt 0 ]; then
     echo "      - Send/Recv operation timing"
     echo "      - Channel utilization patterns"
     echo "      - Synchronization gaps between operations"
-    echo "   4. Compare rank 0 vs rank 1 timing to find asymmetries"
+    echo "   4. Compare timing across different ranks to find asymmetries"
 elif [ "$NPKIT_COUNT" -gt 0 ]; then
     echo "PARTIAL SUCCESS: Some NPKit data captured"
     echo "======================================================================"
