@@ -16,7 +16,7 @@ Optional Arguments:
     -s, --servers SERVERS         Comma-separated server list (default: from server-list.txt)
     --rccl-branch BRANCH          RCCL branch/tag (default: from branch-list.txt)
     --amd-anp-branch BRANCH       AMD-ANP branch/tag (default: from branch-list.txt)
-    --npkit                       Enable NPKit profiling support in RCCL build
+    --npkit                       Enable NPKit profiling support in RCCL and AMD-ANP build
 
 Configuration Files:
     branch-list.txt              Defines default branches for all repositories
@@ -620,7 +620,7 @@ Examples:
     parser.add_argument(
         "--npkit",
         action="store_true",
-        help="Enable NPKit profiling support in RCCL build"
+        help="Enable NPKit profiling support in RCCL and AMD-ANP build"
     )
     
     args = parser.parse_args()

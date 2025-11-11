@@ -9,6 +9,7 @@ set -o pipefail
 
 # Parse command line arguments
 NPKIT_FLAG=""
+AMD_ANP_NPKIT=""
 RCCL_BRANCH="drop/2025-08"
 AMD_ANP_BRANCH="tags/v1.1.0-5"
 LOG_DIR="/home/dn/amd-dev/dn/build"
@@ -18,6 +19,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --npkit)
             NPKIT_FLAG="--npkit-enable"
+            AMD_ANP_NPKIT="ENABLE_NPKIT=1"
             echo "NPKit profiling enabled"
             shift
             ;;
@@ -44,7 +46,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
-            echo "  --npkit                Enable NPKit profiling support in RCCL"
+            echo "  --npkit                Enable NPKit profiling support in RCCL and AMD-ANP"
             echo "  --rccl-branch BRANCH   Specify RCCL branch to checkout (default: drop/2025-08)"
             echo "  --amd-anp-branch BRANCH Specify AMD-ANP branch/tag to checkout (default: tags/v1.1.0-5)"
             echo "  --log-dir DIR          Directory for log file (default: /home/dn/amd-dev/dn/build)"
@@ -148,7 +150,7 @@ git pull --rebase
 echo "Building AMD-ANP network plugin..."
 cd /home/dn/amd-dev/dn/amd-anp
 sudo rm -rf build
-sudo make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}
+sudo make ${AMD_ANP_NPKIT} RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}
 
 echo "Installing AMD-ANP network plugin..."
 sudo make RCCL_HOME=${RCCL_HOME} ROCM_PATH=${ROCM_HOME} install
