@@ -25,7 +25,10 @@ MESSAGE_SIZE=${3:-"256M"}
 ITERATIONS=${4:-20}
 WARMUP=${5:-5}
 
-OUTPUT_BASE="/home/dn/amd-dev/rccl_mpi_profile"
+WORKSPACE_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+DN_DIR=${WORKSPACE_ROOT}/dn
+
+OUTPUT_BASE="${WORKSPACE_ROOT}/rccl_mpi_profile"
 TIMESTAMP=$(date +%Y-%m-%d_%H.%M)
 OUTPUT_DIR="${OUTPUT_BASE}/${MESSAGE_SIZE}_${TIMESTAMP}"
 
@@ -81,8 +84,8 @@ mpirun --np $NP --allow-run-as-root -H $HOSTS \
 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
 -x NCCL_GDRCOPY_ENABLE=0 \
 -x PATH \
--x LD_LIBRARY_PATH=/home/dn/amd-dev/dn/rccl/build/release:/home/dn/amd-dev/dn/amd-anp/build:/usr/local/lib: \
--x LD_PRELOAD=/home/dn/amd-dev/dn/amd-anp/build/librccl-net.so:/home/dn/amd-dev/dn/rccl/build/release/librccl.so \
+-x LD_LIBRARY_PATH=${DN_DIR}/rccl/build/release:${DN_DIR}/amd-anp/build:/usr/local/lib: \
+-x LD_PRELOAD=${DN_DIR}/amd-anp/build/librccl-net.so:${DN_DIR}/rccl/build/release/librccl.so \
 -x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
 -x NCCL_DMABUF_ENABLE=1 \
 -x HSA_NO_SCRATCH_RECLAIM=1 \
@@ -98,7 +101,10 @@ mpirun --np $NP --allow-run-as-root -H $HOSTS \
 -x NPKIT_DUMP_DIR=${OUTPUT_DIR}/npkit \
 -x NPKIT_FLAGS=0xFFFFFFFFFFFFFFFF \
 -x NCCL_GRAPH_DUMP_FILE=${OUTPUT_DIR}/nccl_graph.xml \
-/home/dn/amd-dev/dn/rccl-tests/build/all_reduce_perf -b ${MESSAGE_SIZE} -e ${MESSAGE_SIZE} -f 2 -g 1 -n ${ITERATIONS} -c 1 -w ${WARMUP}
+-x NCCL_DEBUG=INFO \
+-x NCCL_DEBUG_SUBSYS=INIT,GRAPH,COLL \
+-x NCCL_DEBUG_FILE=${OUTPUT_DIR}/rccl.log \
+${DN_DIR}/rccl-tests/build/all_reduce_perf -b ${MESSAGE_SIZE} -e ${MESSAGE_SIZE} -f 2 -g 1 -n ${ITERATIONS} -c 1 -w ${WARMUP}
 
 PROFILE_EXIT_CODE=$?
 
@@ -125,7 +131,7 @@ NPKIT_COUNT=$(find ${NPKIT_BASE_DIR} -type f 2>/dev/null | wc -l)
 echo "Found $NPKIT_COUNT NPKit binary trace files in ${NPKIT_BASE_DIR}"
 
 # Convert NPKit traces to JSON for all ranks
-RCCL_HOME="/home/dn/amd-dev/dn/rccl"
+RCCL_HOME=${DN_DIR}/rccl
 NPKIT_GENERATOR="${RCCL_HOME}/tools/scripts/npkit_trace_generator.py"
 NPKIT_HEADER="${RCCL_HOME}/src/include/npkit/npkit_event.h"
 

@@ -45,7 +45,7 @@ Examples:
     ./build-cluster.py -s "192.168.1.10,192.168.1.11" -b develop --rccl-branch develop --amd-anp-branch main --npkit
 
 Pre-flight Checks:
-    1. Main repository (/home/dn/amd-dev):
+    1. Main repository (detected from current directory):
        - FAILS if uncommitted changes or unpushed commits touch dn/ directory
        - WARNS (continues) if changes are outside dn/ directory
     2. RCCL repository (dn/rccl): uncommitted changes & unpushed commits (FAILS)
@@ -60,6 +60,7 @@ Remote Build Process:
 
 import argparse
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -76,6 +77,49 @@ class Colors:
 
 # Thread-safe printing lock
 print_lock = threading.Lock()
+
+
+def get_repo_root() -> str:
+    """
+    Get the root directory of the git repository
+    
+    The git command is run from the script's directory to ensure we get
+    the correct repository root regardless of where the script is invoked from.
+    
+    Returns:
+        Absolute path to the repository root
+    """
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    try:
+        # Try to get git root using git rev-parse from the script's directory
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=script_dir
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback: go up two levels from script dir (dn/build -> dn -> repo root)
+        # This assumes the script is in dn/build/ directory
+        return os.path.dirname(os.path.dirname(script_dir))
+
+
+def is_local_server(server: str) -> bool:
+    """
+    Check if the server is a local server (localhost or local IP)
+    
+    Args:
+        server: Server hostname or IP address
+        
+    Returns:
+        True if the server is local, False otherwise
+    """
+    local_hostname, _, local_ips = socket.gethostbyname_ex(socket.gethostname())
+    return server == local_hostname or server in local_ips
 
 
 def print_info(message: str) -> None:
@@ -96,9 +140,12 @@ def print_warning(message: str) -> None:
         print(f"{Colors.YELLOW}[WARNING]{Colors.NC} {message}")
 
 
-def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd_anp_branch: str) -> bool:
+def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd_anp_branch: str, repo_path: str) -> bool:
     """
     Build RCCL on a single server
+    
+    If the server is local (localhost or local IP), commands are executed directly.
+    Otherwise, commands are executed via SSH.
     
     Args:
         server: Server hostname or IP address
@@ -106,6 +153,7 @@ def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd
         npkit: Whether to enable NPKit profiling
         rccl_branch: RCCL branch/tag to checkout
         amd_anp_branch: AMD-ANP branch/tag to checkout
+        repo_path: Path to the repository root on the server
         
     Returns:
         True if build succeeded, False otherwise
@@ -114,36 +162,51 @@ def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd
     print_info(f"Processing server: {server}")
     print_info("=" * 48)
     
-    # Build the command to run on the remote server
+    # Check if this is a local server
+    is_local = is_local_server(server)
+    if is_local:
+        print_info("Detected local server - running commands directly (no SSH)")
+    
+    # Build the command to run
     npkit_flag = "--npkit" if npkit else ""
     rccl_flag = f"--rccl-branch {rccl_branch}"
     amd_anp_flag = f"--amd-anp-branch {amd_anp_branch}"
     print_info(f"Starting build({npkit_flag}, {rccl_flag}, {amd_anp_flag})")
-    ssh_commands = f"""
+    
+    commands = f"""
 set -e
 
-cd /home/dn/amd-dev
+cd {repo_path}
 echo "Fetching latest changes..."
 git fetch -p
 git checkout {branch}
 git pull --rebase
 
 echo "Starting build..."
-cd /home/dn/amd-dev
+cd {repo_path}
 ./dn/build/build.sh {npkit_flag} {rccl_flag} {amd_anp_flag}
 """
     
     try:
-        # Execute commands on remote server via SSH
-        result = subprocess.run(
-            ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no", 
-             server, ssh_commands],
-            capture_output=True,
-            text=True,
-            timeout=3600  # 1 hour timeout for build
-        )
+        if is_local:
+            # Execute commands locally using shell
+            result = subprocess.run(
+                ["/bin/bash", "-c", commands],
+                capture_output=True,
+                text=True,
+                timeout=3600  # 1 hour timeout for build
+            )
+        else:
+            # Execute commands on remote server via SSH
+            result = subprocess.run(
+                ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no", 
+                 server, commands],
+                capture_output=True,
+                text=True,
+                timeout=3600  # 1 hour timeout for build
+            )
         
-        # Print output from remote server
+        # Print output
         if result.stdout:
             with print_lock:
                 print(result.stdout)
@@ -165,19 +228,25 @@ cd /home/dn/amd-dev
         print_error(f"✗ Build failed on {server}: {e}")
         return False
     except Exception as e:
-        print_error(f"✗ Error connecting to {server}: {e}")
+        if is_local:
+            print_error(f"✗ Error executing commands locally: {e}")
+        else:
+            print_error(f"✗ Error connecting to {server}: {e}")
         return False
     finally:
         with print_lock:
             print()
 
 
-def check_local_git_status() -> bool:
+def check_local_git_status(repo_path: str) -> bool:
     """
     Check if there are uncommitted changes in the local repository
     Ignores untracked files, only checks for modified and staged files.
     Only fails if changes are under dn/ directory; warns for other changes.
     
+    Args:
+        repo_path: Path to the repository root
+        
     Returns:
         True if repository is clean or only has changes outside dn/, False if there are uncommitted changes under dn/
     """
@@ -188,7 +257,7 @@ def check_local_git_status() -> bool:
             capture_output=True,
             text=True,
             check=True,
-            cwd="/home/dn/amd-dev"
+            cwd=repo_path
         )
         
         # Filter out untracked files (lines starting with '??')
@@ -243,11 +312,14 @@ def check_local_git_status() -> bool:
         return False
 
 
-def check_unpushed_commits() -> bool:
+def check_unpushed_commits(repo_path: str) -> bool:
     """
     Check if there are local commits that haven't been pushed to origin
     Only fails if unpushed commits touch files under dn/ directory; warns for other commits.
     
+    Args:
+        repo_path: Path to the repository root
+        
     Returns:
         True if all commits are pushed or unpushed commits don't touch dn/, False if there are unpushed commits touching dn/
     """
@@ -258,7 +330,7 @@ def check_unpushed_commits() -> bool:
             ["git", "fetch"],
             capture_output=True,
             text=True,
-            cwd="/home/dn/amd-dev"
+            cwd=repo_path
         )
         
         # Get the current branch name
@@ -267,7 +339,7 @@ def check_unpushed_commits() -> bool:
             capture_output=True,
             text=True,
             check=True,
-            cwd="/home/dn/amd-dev"
+            cwd=repo_path
         )
         current_branch = branch_result.stdout.strip()
         
@@ -276,7 +348,7 @@ def check_unpushed_commits() -> bool:
             ["git", "rev-list", "@{u}..HEAD"],
             capture_output=True,
             text=True,
-            cwd="/home/dn/amd-dev"
+            cwd=repo_path
         )
         
         # If output is not empty, there are unpushed commits
@@ -288,7 +360,7 @@ def check_unpushed_commits() -> bool:
                 ["git", "diff", "--name-only", "@{u}..HEAD"],
                 capture_output=True,
                 text=True,
-                cwd="/home/dn/amd-dev"
+                cwd=repo_path
             )
             
             changed_files = diff_result.stdout.strip().split('\n') if diff_result.stdout.strip() else []
@@ -302,7 +374,7 @@ def check_unpushed_commits() -> bool:
                 ["git", "log", "@{u}..HEAD", "--oneline"],
                 capture_output=True,
                 text=True,
-                cwd="/home/dn/amd-dev"
+                cwd=repo_path
             )
             
             if dn_files:
@@ -457,7 +529,7 @@ def check_subdir_unpushed_commits(repo_path: str, repo_name: str) -> bool:
 
 
 def build_worker(server: str, branch: str, npkit: bool, rccl_branch: str, amd_anp_branch: str,
-                 success_list: List[str], failed_list: List[str],
+                 repo_path: str, success_list: List[str], failed_list: List[str],
                  list_lock: threading.Lock) -> None:
     """
     Worker function to build on a server (to be run in a thread)
@@ -468,11 +540,12 @@ def build_worker(server: str, branch: str, npkit: bool, rccl_branch: str, amd_an
         npkit: Whether to enable NPKit profiling
         rccl_branch: RCCL branch/tag to checkout
         amd_anp_branch: AMD-ANP branch/tag to checkout
+        repo_path: Path to the repository root on the remote server
         success_list: Thread-safe list to append successful servers
         failed_list: Thread-safe list to append failed servers
         list_lock: Lock for thread-safe list operations
     """
-    if build_on_server(server, branch, npkit, rccl_branch, amd_anp_branch):
+    if build_on_server(server, branch, npkit, rccl_branch, amd_anp_branch, repo_path):
         with list_lock:
             success_list.append(server)
     else:
@@ -539,6 +612,11 @@ def read_branches_from_file(file_path: str) -> dict:
 
 def main():
     """Main function"""
+    # Get the repository root path
+    repo_path = get_repo_root()
+    print_info(f"Repository root: {repo_path}")
+    print()
+    
     # Read branch defaults from branch-list.txt
     script_dir = os.path.dirname(os.path.abspath(__file__))
     branch_file = os.path.join(script_dir, "branch-list.txt")
@@ -555,7 +633,7 @@ def main():
         epilog="""
 Description:
   This script performs pre-flight checks on local repositories:
-  1. Main repository (/home/dn/amd-dev):
+  1. Main repository (detected from current directory):
      - FAILS if uncommitted changes or unpushed commits touch dn/ directory
      - WARNS (continues) if changes/commits are outside dn/ directory
   2. dn/rccl repository:
@@ -566,6 +644,9 @@ Description:
      - Checks for unpushed commits to origin (FAILS if found)
   
   Branch defaults are read from branch-list.txt unless explicitly provided via command line.
+  
+  The script detects the repository root from the current working directory and uses the same
+  path on remote servers. This allows the script to work from any location within the repository.
   
   If checks pass, it connects to each server in the provided list via SSH and:
   1. Fetches latest git changes (git fetch -p)
@@ -649,44 +730,46 @@ Examples:
     
     # Check for uncommitted changes in local repository first
     print_info("Checking local repository for uncommitted changes under dn/...")
-    if not check_local_git_status():
+    if not check_local_git_status(repo_path):
         print_error("Build aborted due to uncommitted changes under dn/ in local repository.")
         sys.exit(1)
     print_info("Local repository has no uncommitted changes under dn/.")
     print()
     
     # Check for unpushed commits
-    if not check_unpushed_commits():
+    if not check_unpushed_commits(repo_path):
         print_error("Build aborted due to unpushed commits touching dn/ in local repository.")
         sys.exit(1)
     print_info("All commits touching dn/ are pushed to origin.")
     print()
     
     # Check dn/rccl subdirectory
+    rccl_path = os.path.join(repo_path, "dn", "rccl")
     print_info("Checking dn/rccl repository for uncommitted changes...")
-    if not check_subdir_git_status("/home/dn/amd-dev/dn/rccl", "dn/rccl"):
+    if not check_subdir_git_status(rccl_path, "dn/rccl"):
         print_error("Build aborted due to uncommitted changes in dn/rccl repository.")
         sys.exit(1)
     print_info("dn/rccl repository is clean.")
     print()
     
     print_info("Checking dn/rccl repository for unpushed commits...")
-    if not check_subdir_unpushed_commits("/home/dn/amd-dev/dn/rccl", "dn/rccl"):
+    if not check_subdir_unpushed_commits(rccl_path, "dn/rccl"):
         print_error("Build aborted due to unpushed commits in dn/rccl repository.")
         sys.exit(1)
     print_info("All commits are pushed to origin in dn/rccl.")
     print()
     
     # Check dn/amd-anp subdirectory
+    amd_anp_path = os.path.join(repo_path, "dn", "amd-anp")
     print_info("Checking dn/amd-anp repository for uncommitted changes...")
-    if not check_subdir_git_status("/home/dn/amd-dev/dn/amd-anp", "dn/amd-anp"):
+    if not check_subdir_git_status(amd_anp_path, "dn/amd-anp"):
         print_error("Build aborted due to uncommitted changes in dn/amd-anp repository.")
         sys.exit(1)
     print_info("dn/amd-anp repository is clean.")
     print()
     
     print_info("Checking dn/amd-anp repository for unpushed commits...")
-    if not check_subdir_unpushed_commits("/home/dn/amd-dev/dn/amd-anp", "dn/amd-anp"):
+    if not check_subdir_unpushed_commits(amd_anp_path, "dn/amd-anp"):
         print_error("Build aborted due to unpushed commits in dn/amd-anp repository.")
         sys.exit(1)
     print_info("All commits are pushed to origin in dn/amd-anp.")
@@ -729,7 +812,7 @@ Examples:
         thread = threading.Thread(
             target=build_worker,
             args=(server, args.branch, args.npkit, args.rccl_branch, args.amd_anp_branch, 
-                  success_servers, failed_servers, list_lock),
+                  repo_path, success_servers, failed_servers, list_lock),
             name=f"BuildThread-{server}"
         )
         thread.start()

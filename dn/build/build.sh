@@ -7,11 +7,14 @@ set -u
 # Fail on pipe errors
 set -o pipefail
 
+WORKSPACE_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+DN_DIR=${WORKSPACE_ROOT}/dn
+
 # Parse command line arguments
 NPKIT_FLAG=""
 RCCL_BRANCH="drop/2025-08"
 AMD_ANP_BRANCH="tags/v1.1.0-5"
-LOG_DIR="/home/dn/amd-dev/dn/build"
+LOG_DIR="${DN_DIR}/build"
 ENABLE_LOGGING=true
 
 while [[ $# -gt 0 ]]; do
@@ -114,43 +117,51 @@ echo ""
 # set environment variables
 export OMPI_HOME=/opt/ompi-4.1.6/
 export OMPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/
-export RCCL_HOME=/home/dn/amd-dev/dn/rccl/
+export RCCL_HOME=${DN_DIR}/rccl/
 export RCCL_INSTALL_DIR=${RCCL_HOME}/build/release/
 export ROCM_HOME=/opt/rocm-7.0.1/
 
 # checkout git rccl to specified branch/tag
-cd ~/amd-dev/dn/rccl/
+cd ${DN_DIR}/rccl/
 git fetch -p
 echo "Checking out RCCL: ${RCCL_BRANCH}"
 git checkout ${RCCL_BRANCH}
-git pull --rebase
+# Only pull if we're on a branch (not a tag/detached HEAD)
+if git symbolic-ref -q HEAD > /dev/null; then
+    git pull --rebase
+fi
 
 # build rccl based on specified branch
 echo "Building RCCL..."
-cd /home/dn/amd-dev/dn/rccl
-sudo rm -rf build
+cd ${DN_DIR}/rccl
+# No need to remove build directory if it already exists, this is a significant time saver
+# sudo rm -rf build
 ./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel --amdgpu_targets gfx950 ${NPKIT_FLAG}
 
 # build rccl-tests
 echo "Building RCCL tests..."
-cd /home/dn/amd-dev/dn/rccl-tests/
+cd ${DN_DIR}/rccl-tests/
 sudo rm -rf build
 make MPI=1 MPI_HOME=${OMPI_HOME} NCCL_HOME=${RCCL_INSTALL_DIR} -j
 
 # checkout amd-anp to specified branch/tag
-cd ~/amd-dev/dn/amd-anp
+cd ${DN_DIR}/amd-anp
 git fetch -p
 echo "Checking out AMD-ANP: ${AMD_ANP_BRANCH}"
 git checkout ${AMD_ANP_BRANCH}
-git pull --rebase
+# Only pull if we're on a branch (not a tag/detached HEAD)
+if git symbolic-ref -q HEAD > /dev/null; then
+    git pull --rebase
+fi
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
 echo "Building AMD-ANP network plugin..."
-cd /home/dn/amd-dev/dn/amd-anp
+cd ${DN_DIR}/amd-anp
 sudo rm -rf build
 sudo make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}
 
-echo "Installing AMD-ANP network plugin..."
-sudo make RCCL_HOME=${RCCL_HOME} ROCM_PATH=${ROCM_HOME} install
+# We do not install the network plugin to the shared library path to allow multiple versions.
+# echo "Installing AMD-ANP network plugin..."
+# sudo make RCCL_HOME=${RCCL_HOME} ROCM_PATH=${ROCM_HOME} install
 
 echo "Build completed successfully!"
