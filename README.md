@@ -21,6 +21,7 @@ adduser USERNAME
 adduser USERNAME sudo # For sudo
 adduser USERNAME render # For amd-smi
 adduser USERNAME video # For amd-smi
+pkill -u USERNAME -f "cursor-server" # restart Cursor's termainal server in order to be aware to the new added groups
 ```
 
 ### For each host:
