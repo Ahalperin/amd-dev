@@ -79,6 +79,8 @@ mpirun --np $NP --allow-run-as-root -H $HOSTS \
 --bind-to numa \
 --mca oob_tcp_if_include enp81s0f1np1 \
 --mca btl_tcp_if_include enp81s0f1np1 \
+--output-filename ${OUTPUT_DIR}/cmd_output \
+--merge-stderr-to-stdout \
 -x NCCL_IB_GID_INDEX=1 \
 -x NCCL_GDR_FLUSH_DISABLE=1 \
 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
