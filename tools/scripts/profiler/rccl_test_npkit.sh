@@ -102,8 +102,8 @@ mpirun --np $NP --allow-run-as-root -H $HOSTS \
 -x NPKIT_FLAGS=0xFFFFFFFFFFFFFFFF \
 -x NCCL_GRAPH_DUMP_FILE=${OUTPUT_DIR}/nccl_graph.xml \
 -x NCCL_DEBUG=INFO \
--x NCCL_DEBUG_SUBSYS=INIT,GRAPH,COLL \
--x NCCL_DEBUG_FILE=${OUTPUT_DIR}/rccl.log \
+-x NCCL_DEBUG_SUBSYS=INIT,BOOTSTRAP,GRAPH \
+-x NCCL_DEBUG_FILE=${OUTPUT_DIR}/rccl.%h.%p.log \
 ${DN_DIR}/rccl-tests/build/all_reduce_perf -b ${MESSAGE_SIZE} -e ${MESSAGE_SIZE} -f 2 -g 1 -n ${ITERATIONS} -c 1 -w ${WARMUP}
 
 PROFILE_EXIT_CODE=$?
