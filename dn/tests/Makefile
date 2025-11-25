@@ -4,7 +4,7 @@
 HIPCC = hipcc
 
 # Compiler flags
-CXXFLAGS = -O2 -Wall
+CXXFLAGS = -O2 -Wall -std=c++11 -pthread
 
 # Target executables
 TARGET_1GPU = vector_add_test

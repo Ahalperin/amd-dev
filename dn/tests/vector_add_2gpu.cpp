@@ -1,6 +1,39 @@
 #include <hip/hip_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <thread>
+#include <cmath>
+#include <chrono>
+
+// Helper function to get current time point
+std::chrono::high_resolution_clock::time_point getTimeNow()
+{
+    return std::chrono::high_resolution_clock::now();
+}
+
+// Helper function to calculate elapsed time in milliseconds
+long getElapsedTimeMs(std::chrono::high_resolution_clock::time_point start)
+{
+    auto end = getTimeNow();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    return duration.count();
+}
+
+// Structure to hold parameters for each GPU thread
+struct GPUThreadParams {
+    int gpuId;
+    hipStream_t *stream;
+    float **d_A;
+    float **d_B;
+    float **d_C;
+    const float *h_A;
+    const float *h_B;
+    float *h_C;
+    size_t size;
+    int dataOffset;
+    int numElements;
+    int threadsPerBlock;
+};
 
 // HIP kernel for vector addition
 __global__ void vectorAdd(const float *A, const float *B, float *C, int numElements)
@@ -39,13 +72,13 @@ void printDeviceProperties(int deviceId)
     printf("GPU %d: %s\n", deviceId, prop.name);
 }
 
-// Helper function to allocate host memory with error checking
+// Helper function to allocate pinned host memory with error checking
 void allocateHostMemory(float **h_ptr, size_t size, const char *vectorName)
 {
-    *h_ptr = (float *)malloc(size);
-    if (*h_ptr == NULL)
+    hipError_t err = hipHostMalloc((void**)h_ptr, size, hipHostMallocDefault);
+    if (err != hipSuccess || *h_ptr == NULL)
     {
-        fprintf(stderr, "Failed to allocate host vector %s!\n", vectorName);
+        fprintf(stderr, "Failed to allocate pinned host memory for vector %s (error code %s)!\n", vectorName, hipGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 }
@@ -58,6 +91,24 @@ void initializeVectors(float *A, float *B, int numElements)
         A[i] = rand() / (float)RAND_MAX;
         B[i] = rand() / (float)RAND_MAX;
     }
+}
+
+// Helper function to setup host-side memory and initialize vectors
+void setupHost(float **h_A, float **h_B, float **h_C, size_t size, int numElements)
+{
+    auto setup_start = getTimeNow();
+    
+    // Allocate host memory
+    allocateHostMemory(h_A, size, "A");
+    allocateHostMemory(h_B, size, "B");
+    allocateHostMemory(h_C, size, "C");
+    
+    // Initialize input vectors
+    printf("\nInitializing input vectors...\n");
+    initializeVectors(*h_A, *h_B, numElements);
+    
+    long setup_time_ms = getElapsedTimeMs(setup_start);
+    printf("Host setup time: %ld ms\n", setup_time_ms);
 }
 
 // Helper function to set device with error checking
@@ -157,6 +208,86 @@ void destroyStream(hipStream_t stream, int streamId)
     }
 }
 
+// Helper function to free pinned host memory with error checking
+void freeHostMemory(void *h_ptr, const char *vectorName)
+{
+    hipError_t err = hipHostFree(h_ptr);
+    if(err != hipSuccess)
+    {
+        fprintf(stderr, "Failed to free pinned host memory for vector %s (error code %s)!\n", vectorName, hipGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+}
+
+// Helper function to setup GPU with stream creation, memory allocation, and data transfer
+void setupGPU(int gpuId, hipStream_t *stream, float **d_A, float **d_B, float **d_C, const float *h_A, const float *h_B, size_t size, int dataOffset)
+{
+    printf("\n=== Setting up GPU %d ===\n", gpuId);
+    createStream(stream, gpuId);
+    // Allocate device memory
+    allocateDeviceMemory(d_A, size, "A", gpuId);
+    allocateDeviceMemory(d_B, size, "B", gpuId);
+    allocateDeviceMemory(d_C, size, "C", gpuId);
+    
+    printf("Allocated %.2f MB on GPU %d\n", (size * 3) / (1024.0f * 1024.0f), gpuId);
+    
+    // Copy data to GPU (asynchronously)
+    copyMemoryAsync(*d_A, h_A + dataOffset, size, hipMemcpyHostToDevice, *stream, "copy data to", gpuId);
+    copyMemoryAsync(*d_B, h_B + dataOffset, size, hipMemcpyHostToDevice, *stream, "copy data to", gpuId);
+}
+
+// Helper function to retrieve results from GPU
+void retrieveResults(int gpuId, hipStream_t stream, float *h_C, float *d_C, size_t size, int dataOffset)
+{
+    printf("\n=== Copying results back from GPU %d to host ===\n", gpuId);
+    copyMemoryAsync(h_C + dataOffset, d_C, size, hipMemcpyDeviceToHost, stream, "copy results from", gpuId);
+}
+
+// Helper function to verify results and measure verification time
+bool verifyResults(const float *h_A, const float *h_B, const float *h_C, int numElements)
+{
+    auto verify_start = getTimeNow();
+    printf("\n=== Verifying results ===\n");
+    
+    bool passed = true;
+    for (int i = 0; i < numElements; ++i)
+    {
+        if (fabs(h_A[i] + h_B[i] - h_C[i]) > 1e-5)
+        {
+            fprintf(stderr, "Result verification failed at element %d! Expected %.5f, got %.5f\n", 
+                    i, h_A[i] + h_B[i], h_C[i]);
+            passed = false;
+            break;
+        }
+    }
+    
+    long verify_time_ms = getElapsedTimeMs(verify_start);
+    printf("Verification time: %ld ms\n", verify_time_ms);
+    
+    return passed;
+}
+
+// Thread function to handle all operations for one GPU
+void gpuThreadFunc(GPUThreadParams *p)
+{
+    // printf start of GPU thread function
+    printf("Starting GPU thread function for GPU %d\n", p->gpuId);
+    
+    setDevice(p->gpuId);
+    
+    setupGPU(p->gpuId, p->stream, p->d_A, p->d_B, p->d_C, p->h_A, p->h_B, p->size, p->dataOffset);
+    
+    auto kernel_start = getTimeNow();
+    
+    launchKernel(*p->d_A, *p->d_B, *p->d_C, p->numElements, p->threadsPerBlock, *p->stream, p->gpuId);
+    synchronizeStream(*p->stream, p->gpuId);
+    
+    long kernel_time_ms = getElapsedTimeMs(kernel_start);
+    printf("GPU %d kernel execution time: %ld ms\n", p->gpuId, kernel_time_ms);
+    
+    retrieveResults(p->gpuId, *p->stream, p->h_C, *p->d_C, p->size, p->dataOffset);
+}
+
 int main(void)
 {
     // Print header
@@ -203,98 +334,63 @@ int main(void)
     float *d_A0 = NULL, *d_B0 = NULL, *d_C0 = NULL; // Device pointers for GPU 0
     float *d_A1 = NULL, *d_B1 = NULL, *d_C1 = NULL; // Device pointers for GPU 1
 
-    // ============== setup host side ==============
-    allocateHostMemory(&h_A, size, "A");
-    allocateHostMemory(&h_B, size, "B");
-    allocateHostMemory(&h_C, size, "C");
+    // Setup host memory (main thread)
+    setupHost(&h_A, &h_B, &h_C, size, numElements);
 
-    // Initialize host arrays
-    printf("\nInitializing input vectors...\n");
-    for (int i = 0; i < numElements; ++i)
-    {
-        h_A[i] = rand() / (float)RAND_MAX;
-        h_B[i] = rand() / (float)RAND_MAX;
-    }
-    
-    // ============== GPU 0 Setup ==============
-    printf("\n=== Setting up GPU 0 ===\n");
-    setDevice(0);
-
-    // Create stream for GPU 0
-    createStream(&stream0, 0);
-
-    // Allocate memory on GPU 0
-    allocateDeviceMemory(&d_A0, size_GPU0, "A", 0);
-    allocateDeviceMemory(&d_B0, size_GPU0, "B", 0);
-    allocateDeviceMemory(&d_C0, size_GPU0, "C", 0);
-
-    printf("Allocated %.2f MB on GPU 0\n", (size_GPU0 * 3) / (1024.0f * 1024.0f));
-
-    // Copy data to GPU 0 (asynchronously)
-    copyMemoryAsync(d_A0, h_A, size_GPU0, hipMemcpyHostToDevice, stream0, "copy data to", 0);
-    copyMemoryAsync(d_B0, h_B, size_GPU0, hipMemcpyHostToDevice, stream0, "copy data to", 0);
-
-    // ============== GPU 1 Setup ==============
-    printf("\n=== Setting up GPU 1 ===\n");
-    setDevice(1);
-
-    // Create stream for GPU 1
-    createStream(&stream1, 1);
-
-    
-    // Allocate memory on GPU 1
-    allocateDeviceMemory(&d_A1, size_GPU1, "A", 1);
-    allocateDeviceMemory(&d_B1, size_GPU1, "B", 1);
-    allocateDeviceMemory(&d_C1, size_GPU1, "C", 1);
-
-    printf("Allocated %.2f MB on GPU 1\n", (size_GPU1 * 3) / (1024.0f * 1024.0f));
-
-    // Copy data to GPU 1 (asynchronously) - offset to second half of data
-    copyMemoryAsync(d_A1, h_A + numElements_GPU0, size_GPU1, hipMemcpyHostToDevice, stream1, "copy data to", 1);
-    copyMemoryAsync(d_B1, h_B + numElements_GPU0, size_GPU1, hipMemcpyHostToDevice, stream1, "copy data to", 1);
-
-    // ============== Launch Kernels on Both GPUs ==============
-    printf("\n=== Launching kernels on both GPUs ===\n");
-    
+    // ============== Setup Parameters for GPU Threads ==============
     int threadsPerBlock = 256;
-
-    // Launch kernel on GPU 0
-    setDevice(0);
-    launchKernel(d_A0, d_B0, d_C0, numElements_GPU0, threadsPerBlock, stream0, 0);
-
-    // Launch kernel on GPU 1
-    setDevice(1);
-    launchKernel(d_A1, d_B1, d_C1, numElements_GPU1, threadsPerBlock, stream1, 1);
-
-    // Wait for both GPUs to finish
-    synchronizeStream(stream0, 0);
-    synchronizeStream(stream1, 1);
-
-
-    // ============== Copy Results Back ==============
-    printf("\n=== Copying results back to host ===\n");
     
-    // Copy results from GPU 0 (asynchronously)
-    setDevice(0);
-    copyMemoryAsync(h_C, d_C0, size_GPU0, hipMemcpyDeviceToHost, stream0, "copy results from", 0);
+    GPUThreadParams params0 = {
+        .gpuId = 0,
+        .stream = &stream0,
+        .d_A = &d_A0,
+        .d_B = &d_B0,
+        .d_C = &d_C0,
+        .h_A = h_A,
+        .h_B = h_B,
+        .h_C = h_C,
+        .size = size_GPU0,
+        .dataOffset = 0,
+        .numElements = numElements_GPU0,
+        .threadsPerBlock = threadsPerBlock
+    };
     
-    // Copy results from GPU 1 (asynchronously) - offset to second half
-    setDevice(1);
-    copyMemoryAsync(h_C + numElements_GPU0, d_C1, size_GPU1, hipMemcpyDeviceToHost, stream1, "copy results from", 1);
+    GPUThreadParams params1 = {
+        .gpuId = 1,
+        .stream = &stream1,
+        .d_A = &d_A1,
+        .d_B = &d_B1,
+        .d_C = &d_C1,
+        .h_A = h_A,
+        .h_B = h_B,
+        .h_C = h_C,
+        .size = size_GPU1,
+        .dataOffset = numElements_GPU0,
+        .numElements = numElements_GPU1,
+        .threadsPerBlock = threadsPerBlock
+    };
+
+    // ============== Launch GPU Threads (Parallel Execution) ==============
+    printf("\n=== Launching GPU threads for parallel execution ===\n");
     
+    // Measure total parallel execution time
+    auto parallel_start = getTimeNow();
+    
+    std::thread gpu0Thread(gpuThreadFunc, &params0);
+    std::thread gpu1Thread(gpuThreadFunc, &params1);
+    
+    // Wait for both GPU threads to complete
+    printf("Main thread waiting for GPU threads to complete...\n");
+    gpu0Thread.join();
+    gpu1Thread.join();
+    
+    long parallel_time_ms = getElapsedTimeMs(parallel_start);
+    
+    printf("Both GPU threads completed!\n");
+    printf("Total parallel execution time (both GPUs): %ld ms\n", parallel_time_ms);
+
     // ============== Verify Results ==============
-    printf("\n=== Verifying results ===\n");
-    bool passed = true;
-    for (int i = 0; i < numElements; ++i)
-    {
-        if (fabs(h_A[i] + h_B[i] - h_C[i]) > 1e-5)
-        {
-            fprintf(stderr, "Result verification failed at element %d! Expected %.5f, got %.5f\n", 
-                    i, h_A[i] + h_B[i], h_C[i]);
-            passed = false;
-            break;
-        }
-    }
+    bool passed = verifyResults(h_A, h_B, h_C, numElements);
 
     if (passed)
     {
@@ -324,10 +420,10 @@ int main(void)
     destroyStream(stream0, 0);
     destroyStream(stream1, 1);
 
-    // Free host memory
-    free(h_A);
-    free(h_B);
-    free(h_C);
+    // Free pinned host memory
+    freeHostMemory(h_A, "A");
+    freeHostMemory(h_B, "B");
+    freeHostMemory(h_C, "C");
 
     printf("Done\n");
     return passed ? 0 : 1;
