@@ -264,7 +264,16 @@ bool verifyResults(const float *h_A, const float *h_B, const float *h_C, int num
     
     long verify_time_ms = getElapsedTimeMs(verify_start);
     printf("Verification time: %ld ms\n", verify_time_ms);
-    
+
+    if (passed)
+    {
+        printf("Test PASSED - All %d elements verified correctly!\n", numElements);
+    }
+    else
+    {
+        printf("Test FAILED\n");
+    }
+
     return passed;
 }
 
@@ -281,12 +290,12 @@ void gpuThreadFunc(GPUThreadParams *p)
     auto kernel_start = getTimeNow();
     
     launchKernel(*p->d_A, *p->d_B, *p->d_C, p->numElements, p->threadsPerBlock, *p->stream, p->gpuId);
+    retrieveResults(p->gpuId, *p->stream, p->h_C, *p->d_C, p->size, p->dataOffset);
     synchronizeStream(*p->stream, p->gpuId);
     
     long kernel_time_ms = getElapsedTimeMs(kernel_start);
     printf("GPU %d kernel execution time: %ld ms\n", p->gpuId, kernel_time_ms);
     
-    retrieveResults(p->gpuId, *p->stream, p->h_C, *p->d_C, p->size, p->dataOffset);
 }
 
 int main(int argc, char *argv[])
@@ -418,17 +427,7 @@ int main(int argc, char *argv[])
     printf("All GPU threads completed!\n");
     printf("Total parallel execution time (%d GPUs): %ld ms\n", deviceCount, parallel_time_ms);
 
-    // ============== Verify Results ==============
-    bool passed = verifyResults(h_A, h_B, h_C, numElements);
-
-    if (passed)
-    {
-        printf("Test PASSED - All %d elements verified correctly!\n", numElements);
-    }
-    else
-    {
-        printf("Test FAILED\n");
-    }
+    auto passed = verifyResults(h_A, h_B, h_C, numElements);
 
     // ============== Cleanup ==============
     printf("\n=== Cleaning up ===\n");
