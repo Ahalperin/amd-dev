@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <thread>
+#include <vector>
 #include <cmath>
 #include <chrono>
 
@@ -288,25 +289,49 @@ void gpuThreadFunc(GPUThreadParams *p)
     retrieveResults(p->gpuId, *p->stream, p->h_C, *p->d_C, p->size, p->dataOffset);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
     // Print header
-    printf("[Vector Addition using 2 AMD GPUs with HIP]\n");
+    printf("[Vector Addition using Multiple AMD GPUs with HIP]\n");
 
+    // Parse command-line arguments for max GPU count
+    int maxGPUs = -1; // -1 means use all available GPUs
+    if (argc > 1)
+    {
+        maxGPUs = atoi(argv[1]);
+        if (maxGPUs <= 0)
+        {
+            fprintf(stderr, "Invalid max GPU count: %s. Must be a positive integer.\n", argv[1]);
+            fprintf(stderr, "Usage: %s [max_gpus]\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
     
     // Check number of available GPUs
-    int deviceCount = getDeviceCount();
-
-    printf("Found %d GPU(s)\n", deviceCount);
+    int availableGPUs = getDeviceCount();
+    printf("Found %d GPU(s) available\n", availableGPUs);
     
-    if (deviceCount < 2)
+    if (availableGPUs < 1)
     {
-        fprintf(stderr, "This program requires at least 2 GPUs, but only %d found!\n", deviceCount);
+        fprintf(stderr, "This program requires at least 1 GPU, but none found!\n");
         exit(EXIT_FAILURE);
+    }
+    
+    // Determine actual number of GPUs to use
+    int deviceCount;
+    if (maxGPUs > 0)
+    {
+        deviceCount = (maxGPUs < availableGPUs) ? maxGPUs : availableGPUs;
+        printf("Using %d GPU(s) as requested (max: %d)\n", deviceCount, maxGPUs);
+    }
+    else
+    {
+        deviceCount = availableGPUs;
+        printf("Using all %d GPU(s)\n", deviceCount);
     }
 
     // Print device properties
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < deviceCount; i++)
     {
         printDeviceProperties(i);
     }
@@ -316,23 +341,33 @@ int main(void)
     size_t size = numElements * sizeof(float);
     printf("\nTotal vector size: %d elements (%.2f MB per array)\n", numElements, size / (1024.0f * 1024.0f));
 
-    // Calculate split: divide work between 2 GPUs
-    int elementsPerGPU = numElements / 2;
-    int remainder = numElements % 2;
+    // Calculate split: divide work between N GPUs
+    int elementsPerGPU = numElements / deviceCount;
+    int remainder = numElements % deviceCount;
     
-    int numElements_GPU0 = elementsPerGPU + remainder;  // Give remainder to GPU 0
-    int numElements_GPU1 = elementsPerGPU;
+    // Calculate elements and sizes for each GPU
+    std::vector<int> numElementsPerGPU(deviceCount);
+    std::vector<size_t> sizePerGPU(deviceCount);
+    std::vector<int> dataOffsets(deviceCount);
     
-    size_t size_GPU0 = numElements_GPU0 * sizeof(float);
-    size_t size_GPU1 = numElements_GPU1 * sizeof(float);
-    
-    printf("GPU 0 will process: %d elements (%.2f MB)\n", numElements_GPU0, size_GPU0 / (1024.0f * 1024.0f));
-    printf("GPU 1 will process: %d elements (%.2f MB)\n", numElements_GPU1, size_GPU1 / (1024.0f * 1024.0f));
+    int currentOffset = 0;
+    for (int i = 0; i < deviceCount; i++)
+    {
+        // Distribute remainder across first few GPUs
+        numElementsPerGPU[i] = elementsPerGPU + (i < remainder ? 1 : 0);
+        sizePerGPU[i] = numElementsPerGPU[i] * sizeof(float);
+        dataOffsets[i] = currentOffset;
+        currentOffset += numElementsPerGPU[i];
+        
+        printf("GPU %d will process: %d elements (%.2f MB)\n", i, numElementsPerGPU[i], sizePerGPU[i] / (1024.0f * 1024.0f));
+    }
 
-    hipStream_t stream0, stream1; // Declare streams for asynchronous operations
-    float *h_A = NULL, *h_B = NULL, *h_C = NULL; // Allocate host memory
-    float *d_A0 = NULL, *d_B0 = NULL, *d_C0 = NULL; // Device pointers for GPU 0
-    float *d_A1 = NULL, *d_B1 = NULL, *d_C1 = NULL; // Device pointers for GPU 1
+    // Dynamic allocation for streams and device pointers
+    std::vector<hipStream_t> streams(deviceCount);
+    float *h_A = NULL, *h_B = NULL, *h_C = NULL; // Host memory
+    std::vector<float*> d_A(deviceCount, nullptr); // Device pointers for input A
+    std::vector<float*> d_B(deviceCount, nullptr); // Device pointers for input B
+    std::vector<float*> d_C(deviceCount, nullptr); // Device pointers for output C
 
     // Setup host memory (main thread)
     setupHost(&h_A, &h_B, &h_C, size, numElements);
@@ -340,35 +375,24 @@ int main(void)
     // ============== Setup Parameters for GPU Threads ==============
     int threadsPerBlock = 256;
     
-    GPUThreadParams params0 = {
-        .gpuId = 0,
-        .stream = &stream0,
-        .d_A = &d_A0,
-        .d_B = &d_B0,
-        .d_C = &d_C0,
-        .h_A = h_A,
-        .h_B = h_B,
-        .h_C = h_C,
-        .size = size_GPU0,
-        .dataOffset = 0,
-        .numElements = numElements_GPU0,
-        .threadsPerBlock = threadsPerBlock
-    };
-    
-    GPUThreadParams params1 = {
-        .gpuId = 1,
-        .stream = &stream1,
-        .d_A = &d_A1,
-        .d_B = &d_B1,
-        .d_C = &d_C1,
-        .h_A = h_A,
-        .h_B = h_B,
-        .h_C = h_C,
-        .size = size_GPU1,
-        .dataOffset = numElements_GPU0,
-        .numElements = numElements_GPU1,
-        .threadsPerBlock = threadsPerBlock
-    };
+    std::vector<GPUThreadParams> params(deviceCount);
+    for (int i = 0; i < deviceCount; i++)
+    {
+        params[i] = {
+            .gpuId = i,
+            .stream = &streams[i],
+            .d_A = &d_A[i],
+            .d_B = &d_B[i],
+            .d_C = &d_C[i],
+            .h_A = h_A,
+            .h_B = h_B,
+            .h_C = h_C,
+            .size = sizePerGPU[i],
+            .dataOffset = dataOffsets[i],
+            .numElements = numElementsPerGPU[i],
+            .threadsPerBlock = threadsPerBlock
+        };
+    }
 
     // ============== Launch GPU Threads (Parallel Execution) ==============
     printf("\n=== Launching GPU threads for parallel execution ===\n");
@@ -376,18 +400,23 @@ int main(void)
     // Measure total parallel execution time
     auto parallel_start = getTimeNow();
     
-    std::thread gpu0Thread(gpuThreadFunc, &params0);
-    std::thread gpu1Thread(gpuThreadFunc, &params1);
+    std::vector<std::thread> gpuThreads;
+    for (int i = 0; i < deviceCount; i++)
+    {
+        gpuThreads.emplace_back(gpuThreadFunc, &params[i]);
+    }
     
-    // Wait for both GPU threads to complete
+    // Wait for all GPU threads to complete
     printf("Main thread waiting for GPU threads to complete...\n");
-    gpu0Thread.join();
-    gpu1Thread.join();
+    for (int i = 0; i < deviceCount; i++)
+    {
+        gpuThreads[i].join();
+    }
     
     long parallel_time_ms = getElapsedTimeMs(parallel_start);
     
-    printf("Both GPU threads completed!\n");
-    printf("Total parallel execution time (both GPUs): %ld ms\n", parallel_time_ms);
+    printf("All GPU threads completed!\n");
+    printf("Total parallel execution time (%d GPUs): %ld ms\n", deviceCount, parallel_time_ms);
 
     // ============== Verify Results ==============
     bool passed = verifyResults(h_A, h_B, h_C, numElements);
@@ -404,21 +433,20 @@ int main(void)
     // ============== Cleanup ==============
     printf("\n=== Cleaning up ===\n");
         
-    // Free GPU 0 memory
-    setDevice(0);
-    freeDeviceMemory(d_A0, "A", 0);
-    freeDeviceMemory(d_B0, "B", 0);
-    freeDeviceMemory(d_C0, "C", 0);
-    
-    // Free GPU 1 memory
-    setDevice(1);
-    freeDeviceMemory(d_A1, "A", 1);
-    freeDeviceMemory(d_B1, "B", 1);
-    freeDeviceMemory(d_C1, "C", 1);
+    // Free device memory for all GPUs
+    for (int i = 0; i < deviceCount; i++)
+    {
+        setDevice(i);
+        freeDeviceMemory(d_A[i], "A", i);
+        freeDeviceMemory(d_B[i], "B", i);
+        freeDeviceMemory(d_C[i], "C", i);
+    }
 
-    // Destroy streams
-    destroyStream(stream0, 0);
-    destroyStream(stream1, 1);
+    // Destroy all streams
+    for (int i = 0; i < deviceCount; i++)
+    {
+        destroyStream(streams[i], i);
+    }
 
     // Free pinned host memory
     freeHostMemory(h_A, "A");
