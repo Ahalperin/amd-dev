@@ -13,6 +13,53 @@ __global__ void vectorAdd(const float *A, const float *B, float *C, int numEleme
     }
 }
 
+// Helper function to allocate host memory with error checking
+void allocateHostMemory(float **h_ptr, size_t size, const char *vectorName)
+{
+    *h_ptr = (float *)malloc(size);
+    if (*h_ptr == NULL)
+    {
+        fprintf(stderr, "Failed to allocate host vector %s!\n", vectorName);
+        exit(EXIT_FAILURE);
+    }
+}
+
+// Helper function to allocate device memory with error checking
+void allocateDeviceMemory(float **d_ptr, size_t size, const char *vectorName)
+{
+    hipError_t err = hipMalloc((void **)d_ptr, size);
+    if (err != hipSuccess)
+    {
+        fprintf(stderr, "Failed to allocate device vector %s (error code %s)!\n", 
+                vectorName, hipGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+}
+
+// Helper function to copy memory with error checking
+void copyMemory(void *dst, const void *src, size_t size, hipMemcpyKind kind, const char *vectorName, const char *direction)
+{
+    hipError_t err = hipMemcpy(dst, src, size, kind);
+    if (err != hipSuccess)
+    {
+        fprintf(stderr, "Failed to copy vector %s %s (error code %s)!\n", 
+                vectorName, direction, hipGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+}
+
+// Helper function to free device memory with error checking
+void freeDeviceMemory(void *d_ptr, const char *vectorName)
+{
+    hipError_t err = hipFree(d_ptr);
+    if (err != hipSuccess)
+    {
+        fprintf(stderr, "Failed to free device vector %s (error code %s)!\n", 
+                vectorName, hipGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+}
+
 int main(void)
 {
     // Print header
@@ -27,16 +74,14 @@ int main(void)
     printf("Vector size: %d elements\n", numElements);
 
     // Allocate host memory
-    float *h_A = (float *)malloc(size);
-    float *h_B = (float *)malloc(size);
-    float *h_C = (float *)malloc(size);
-
-    // Verify that allocations succeeded
-    if (h_A == NULL || h_B == NULL || h_C == NULL)
-    {
-        fprintf(stderr, "Failed to allocate host vectors!\n");
-        exit(EXIT_FAILURE);
-    }
+    float *h_A = NULL;
+    allocateHostMemory(&h_A, size, "A");
+    
+    float *h_B = NULL;
+    allocateHostMemory(&h_B, size, "B");
+    
+    float *h_C = NULL;
+    allocateHostMemory(&h_C, size, "C");
 
     // Initialize host arrays
     for (int i = 0; i < numElements; ++i)
@@ -47,51 +92,25 @@ int main(void)
 
     // Allocate device memory
     float *d_A = NULL;
-    err = hipMalloc((void **)&d_A, size);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to allocate device vector A (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    allocateDeviceMemory(&d_A, size, "A");
 
     float *d_B = NULL;
-    err = hipMalloc((void **)&d_B, size);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to allocate device vector B (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    allocateDeviceMemory(&d_B, size, "B");
 
     float *d_C = NULL;
-    err = hipMalloc((void **)&d_C, size);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to allocate device vector C (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    allocateDeviceMemory(&d_C, size, "C");
 
     // Copy input vectors from host to device
     printf("Copying input data from host to device...\n");
-    err = hipMemcpy(d_A, h_A, size, hipMemcpyHostToDevice);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to copy vector A from host to device (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    err = hipMemcpy(d_B, h_B, size, hipMemcpyHostToDevice);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to copy vector B from host to device (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    copyMemory(d_A, h_A, size, hipMemcpyHostToDevice, "A", "from host to device");
+    copyMemory(d_B, h_B, size, hipMemcpyHostToDevice, "B", "from host to device");
 
     // Launch the vector addition kernel
     int threadsPerBlock = 256;
     int blocksPerGrid = (numElements + threadsPerBlock - 1) / threadsPerBlock;
     printf("Launching kernel with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
     
-    hipLaunchKernelGGL(vectorAdd, dim3(blocksPerGrid), dim3(threadsPerBlock), 0, 0, d_A, d_B, d_B, numElements);
+    hipLaunchKernelGGL(vectorAdd, dim3(blocksPerGrid), dim3(threadsPerBlock), 0, 0, d_A, d_B, d_C, numElements);
 
     err = hipGetLastError();
     if (err != hipSuccess)
@@ -102,12 +121,7 @@ int main(void)
 
     // Copy the device result vector in device memory to the host result vector
     printf("Copying output data from device to host...\n");
-    err = hipMemcpy(h_C, d_B, size, hipMemcpyDeviceToHost);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to copy vector C from device to host (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    copyMemory(h_C, d_C, size, hipMemcpyDeviceToHost, "C", "from device to host");
 
     // Verify that the result vector is correct
     printf("Verifying results...\n");
@@ -123,26 +137,11 @@ int main(void)
     printf("Test PASSED\n");
 
     // Free device memory
-    err = hipFree(d_A);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to free device vector A (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    freeDeviceMemory(d_A, "A");
 
-    err = hipFree(d_B);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to free device vector B (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    freeDeviceMemory(d_B, "B");
 
-    err = hipFree(d_C);
-    if (err != hipSuccess)
-    {
-        fprintf(stderr, "Failed to free device vector C (error code %s)!\n", hipGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    freeDeviceMemory(d_C, "C");
 
     // Free host memory
     free(h_A);
@@ -152,4 +151,3 @@ int main(void)
     printf("Done\n");
     return 0;
 }
-

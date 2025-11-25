@@ -1,2 +1,2 @@
 **/*.o
-vector_add_test
+*_test
