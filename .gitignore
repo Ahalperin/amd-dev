@@ -2,6 +2,7 @@ dn/rccl/
 dn/rccl-tests/
 dn/amd-anp/
 dn/torchcomms/
+dn/nccl/
 dn/build/build.log
 
 amd/**/*
