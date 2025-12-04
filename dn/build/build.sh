@@ -16,6 +16,7 @@ RCCL_BRANCH="drop/2025-08"
 AMD_ANP_BRANCH="tags/v1.1.0-5"
 LOG_DIR="${DN_DIR}/build"
 ENABLE_LOGGING=true
+RCCL_DISABLE_MSCCL_FLAGS=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -44,6 +45,11 @@ while [[ $# -gt 0 ]]; do
             echo "Logging disabled"
             shift
             ;;
+        --rccl-disable-msccl)
+            RCCL_DISABLE_MSCCL_FLAGS="--disable-mscclpp --disable-msccl-kernel"
+            echo "RCCL MSCCL disabled"
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
@@ -52,6 +58,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --amd-anp-branch BRANCH Specify AMD-ANP branch/tag to checkout (default: tags/v1.1.0-5)"
             echo "  --log-dir DIR          Directory for log file (default: /home/dn/amd-dev/dn/build)"
             echo "  --no-log               Disable logging to file"
+            echo "  --rccl-disable-msccl   Disable MSCCL++ and MSCCL kernel in RCCL build"
             echo "  -h, --help             Show this help message"
             exit 0
             ;;
@@ -111,6 +118,7 @@ echo "============================================"
 echo "RCCL Branch: ${RCCL_BRANCH}"
 echo "AMD-ANP Branch: ${AMD_ANP_BRANCH}"
 echo "NPKit: ${NPKIT_FLAG:-disabled}"
+echo "MSCCL: $([ -n \"${RCCL_DISABLE_MSCCL_FLAGS}\" ] && echo 'disabled' || echo 'enabled')"
 echo "============================================"
 echo ""
 
@@ -136,7 +144,7 @@ echo "Building RCCL..."
 cd ${DN_DIR}/rccl
 # No need to remove build directory if it already exists, this is a significant time saver
 # sudo rm -rf build
-./install.sh -l --prefix build/ --disable-mscclpp --disable-msccl-kernel --amdgpu_targets gfx950 ${NPKIT_FLAG}
+./install.sh -l --prefix build/ --amdgpu_targets gfx950 ${RCCL_DISABLE_MSCCL_FLAGS} ${NPKIT_FLAG}
 
 # build rccl-tests
 echo "Building RCCL tests..."

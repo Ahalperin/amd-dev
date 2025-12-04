@@ -17,6 +17,7 @@ Optional Arguments:
     --rccl-branch BRANCH          RCCL branch/tag (default: from branch-list.txt)
     --amd-anp-branch BRANCH       AMD-ANP branch/tag (default: from branch-list.txt)
     --npkit                       Enable NPKit profiling support in RCCL build
+    --rccl-disable-msccl          Disable MSCCL++ and MSCCL kernel in RCCL build
 
 Configuration Files:
     branch-list.txt              Defines default branches for all repositories
@@ -41,8 +42,11 @@ Examples:
     # Custom server list with NPKit enabled
     ./build-cluster.py -s "server1,server2" --npkit
 
+    # Build with MSCCL disabled
+    ./build-cluster.py --rccl-disable-msccl
+
     # Full custom configuration
-    ./build-cluster.py -s "192.168.1.10,192.168.1.11" -b develop --rccl-branch develop --amd-anp-branch main --npkit
+    ./build-cluster.py -s "192.168.1.10,192.168.1.11" -b develop --rccl-branch develop --amd-anp-branch main --npkit --rccl-disable-msccl
 
 Pre-flight Checks:
     1. Main repository (detected from current directory):
@@ -140,7 +144,7 @@ def print_warning(message: str) -> None:
         print(f"{Colors.YELLOW}[WARNING]{Colors.NC} {message}")
 
 
-def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd_anp_branch: str, repo_path: str) -> bool:
+def build_on_server(server: str, branch: str, npkit: bool, rccl_disable_msccl: bool, rccl_branch: str, amd_anp_branch: str, repo_path: str) -> bool:
     """
     Build RCCL on a single server
     
@@ -151,6 +155,7 @@ def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd
         server: Server hostname or IP address
         branch: Git branch name to checkout
         npkit: Whether to enable NPKit profiling
+        rccl_disable_msccl: Whether to disable MSCCL++ and MSCCL kernel
         rccl_branch: RCCL branch/tag to checkout
         amd_anp_branch: AMD-ANP branch/tag to checkout
         repo_path: Path to the repository root on the server
@@ -169,9 +174,10 @@ def build_on_server(server: str, branch: str, npkit: bool, rccl_branch: str, amd
     
     # Build the command to run
     npkit_flag = "--npkit" if npkit else ""
+    rccl_disable_msccl_flag = "--rccl-disable-msccl" if rccl_disable_msccl else ""
     rccl_flag = f"--rccl-branch {rccl_branch}"
     amd_anp_flag = f"--amd-anp-branch {amd_anp_branch}"
-    print_info(f"Starting build({npkit_flag}, {rccl_flag}, {amd_anp_flag})")
+    print_info(f"Starting build({npkit_flag}, {rccl_disable_msccl_flag}, {rccl_flag}, {amd_anp_flag})")
     
     commands = f"""
 set -e
@@ -184,7 +190,7 @@ git pull --rebase
 
 echo "Starting build..."
 cd {repo_path}
-./dn/build/build.sh {npkit_flag} {rccl_flag} {amd_anp_flag}
+./dn/build/build.sh {npkit_flag} {rccl_disable_msccl_flag} {rccl_flag} {amd_anp_flag}
 """
     
     try:
@@ -528,7 +534,7 @@ def check_subdir_unpushed_commits(repo_path: str, repo_name: str) -> bool:
         return False
 
 
-def build_worker(server: str, branch: str, npkit: bool, rccl_branch: str, amd_anp_branch: str,
+def build_worker(server: str, branch: str, npkit: bool, rccl_disable_msccl: bool, rccl_branch: str, amd_anp_branch: str,
                  repo_path: str, success_list: List[str], failed_list: List[str],
                  list_lock: threading.Lock) -> None:
     """
@@ -538,6 +544,7 @@ def build_worker(server: str, branch: str, npkit: bool, rccl_branch: str, amd_an
         server: Server hostname or IP address
         branch: Git branch name to checkout
         npkit: Whether to enable NPKit profiling
+        rccl_disable_msccl: Whether to disable MSCCL++ and MSCCL kernel
         rccl_branch: RCCL branch/tag to checkout
         amd_anp_branch: AMD-ANP branch/tag to checkout
         repo_path: Path to the repository root on the remote server
@@ -545,7 +552,7 @@ def build_worker(server: str, branch: str, npkit: bool, rccl_branch: str, amd_an
         failed_list: Thread-safe list to append failed servers
         list_lock: Lock for thread-safe list operations
     """
-    if build_on_server(server, branch, npkit, rccl_branch, amd_anp_branch, repo_path):
+    if build_on_server(server, branch, npkit, rccl_disable_msccl, rccl_branch, amd_anp_branch, repo_path):
         with list_lock:
             success_list.append(server)
     else:
@@ -672,6 +679,7 @@ Examples:
   %(prog)s -b main --rccl-branch drop/2025-10 --amd-anp-branch tags/v1.2.0
   %(prog)s -s "192.168.1.10,192.168.1.11" -b main --npkit
   %(prog)s --rccl-branch develop --npkit  # Override RCCL branch, use others from file
+  %(prog)s --rccl-disable-msccl   # Disable MSCCL++ and MSCCL kernel
         """
     )
     
@@ -702,6 +710,12 @@ Examples:
         "--npkit",
         action="store_true",
         help="Enable NPKit profiling support in RCCL build"
+    )
+    
+    parser.add_argument(
+        "--rccl-disable-msccl",
+        action="store_true",
+        help="Disable MSCCL++ and MSCCL kernel in RCCL build"
     )
     
     args = parser.parse_args()
@@ -794,6 +808,9 @@ Examples:
     if args.npkit:
         print_info("NPKit profiling will be enabled")
     
+    if args.rccl_disable_msccl:
+        print_info("MSCCL++ and MSCCL kernel will be disabled")
+    
     print_info("Starting cluster build process (parallel execution)")
     print_info(f"Branch: {args.branch}")
     print_info(f"RCCL Branch: {args.rccl_branch}")
@@ -811,7 +828,7 @@ Examples:
     for server in servers:
         thread = threading.Thread(
             target=build_worker,
-            args=(server, args.branch, args.npkit, args.rccl_branch, args.amd_anp_branch, 
+            args=(server, args.branch, args.npkit, args.rccl_disable_msccl, args.rccl_branch, args.amd_anp_branch, 
                   repo_path, success_servers, failed_servers, list_lock),
             name=f"BuildThread-{server}"
         )
