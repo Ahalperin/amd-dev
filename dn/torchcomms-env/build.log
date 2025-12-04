@@ -1,0 +1,73 @@
+==========================================
+TorchComms + RCCLX Installation
+==========================================
+✓ Detected ROCm 7.0.1 at /opt/rocm-7.0.1
+✓ Conda found: conda 25.9.1
+✓ torchcomms environment already exists
+Installing prerequisites...
+2 channel Terms of Service accepted
+Channels:
+ - defaults
+ - conda-forge
+Platform: linux-64
+Collecting package metadata (repodata.json): - \ | / - \ | / - \ done
+Solving environment: / done
+
+
+==> WARNING: A newer version of conda exists. <==
+    current version: 25.9.1
+    latest version: 25.11.0
+
+Please update conda by running
+
+    $ conda update -n base -c defaults conda
+
+
+
+# All requested packages already installed.
+
+Setting ROCm environment variables...
+
+Checking for PyTorch with ROCm 7.0.1 support...
+Installing PyTorch with ROCm 7.0.1 support from AMD repository...
+Installing PyTorch 2.6.0 + torchvision 0.21.0 + torchaudio 2.6.0 for ROCm 7.0 (cp310)...
+Collecting pytorch-triton-rocm==3.2.0+rocm7.0.0.git20943800
+  Downloading https://repo.radeon.com/rocm/manylinux/rocm-rel-7.0/pytorch_triton_rocm-3.2.0%2Brocm7.0.0.git20943800-cp310-cp310-linux_x86_64.whl (277.1 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 277.1/277.1 MB 63.1 MB/s  0:00:04
+
+Installing collected packages: pytorch-triton-rocm
+Successfully installed pytorch-triton-rocm-3.2.0+rocm7.0.0.git20943800
+Collecting torch==2.6.0+rocm7.0.0.git2e48b21f
+  Using cached https://repo.radeon.com/rocm/manylinux/rocm-rel-7.0/torch-2.6.0%2Brocm7.0.0.git2e48b21f-cp310-cp310-linux_x86_64.whl (4095.7 MB)
+Collecting torchvision==0.21.0+rocm7.0.0.git4040d51f
+  Using cached https://repo.radeon.com/rocm/manylinux/rocm-rel-7.0/torchvision-0.21.0%2Brocm7.0.0.git4040d51f-cp310-cp310-linux_x86_64.whl (2.6 MB)
+Collecting torchaudio==2.6.0+rocm7.0.0.gitbccaa454
+  Using cached https://repo.radeon.com/rocm/manylinux/rocm-rel-7.0/torchaudio-2.6.0%2Brocm7.0.0.gitbccaa454-cp310-cp310-linux_x86_64.whl (2.0 MB)
+Requirement already satisfied: filelock in /home/amir/miniconda/envs/torchcomms/lib/python3.10/site-packages (from torch==2.6.0+rocm7.0.0.git2e48b21f) (3.20.0)
+Requirement already satisfied: typing-extensions>=4.10.0 in /home/amir/miniconda/envs/torchcomms/lib/python3.10/site-packages (from torch==2.6.0+rocm7.0.0.git2e48b21f) (4.15.0)
+Collecting sympy==1.13.1 (from torch==2.6.0+rocm7.0.0.git2e48b21f)
+  Using cached sympy-1.13.1-py3-none-any.whl.metadata (12 kB)
+Requirement already satisfied: networkx in /home/amir/miniconda/envs/torchcomms/lib/python3.10/site-packages (from torch==2.6.0+rocm7.0.0.git2e48b21f) (3.4.2)
+Requirement already satisfied: jinja2 in /home/amir/miniconda/envs/torchcomms/lib/python3.10/site-packages (from torch==2.6.0+rocm7.0.0.git2e48b21f) (3.1.6)
+Requirement already satisfied: fsspec in /home/amir/miniconda/envs/torchcomms/lib/python3.10/site-packages (from torch==2.6.0+rocm7.0.0.git2e48b21f) (2025.10.0)
+Requirement already satisfied: pytorch-triton-rocm==3.2.0+rocm7.0.0.git20943800 in /home/amir/miniconda/envs/torchcomms/lib/python3.10/site-packages (from torch==2.6.0+rocm7.0.0.git2e48b21f) (3.2.0+rocm7.0.0.git20943800)
+Collecting numpy (from torchvision==0.21.0+rocm7.0.0.git4040d51f)
+  Downloading numpy-2.2.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (62 kB)
+Collecting pillow!=8.3.*,>=5.3.0 (from torchvision==0.21.0+rocm7.0.0.git4040d51f)
+  Downloading pillow-12.0.0-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.8 kB)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /home/amir/miniconda/envs/torchcomms/lib/python3.10/site-packages (from sympy==1.13.1->torch==2.6.0+rocm7.0.0.git2e48b21f) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in /home/amir/miniconda/envs/torchcomms/lib/python3.10/site-packages (from jinja2->torch==2.6.0+rocm7.0.0.git2e48b21f) (3.0.3)
+Downloading sympy-1.13.1-py3-none-any.whl (6.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.2/6.2 MB 69.3 MB/s  0:00:00
+
+Downloading pillow-12.0.0-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (7.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.0/7.0 MB 107.9 MB/s  0:00:00
+
+Downloading numpy-2.2.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.8/16.8 MB 107.9 MB/s  0:00:00
+
+Installing collected packages: sympy, pillow, numpy, torch, torchvision, torchaudio
+  Attempting uninstall: sympy
+    Found existing installation: sympy 1.14.0
+    Uninstalling sympy-1.14.0:
+      Successfully uninstalled sympy-1.14.0

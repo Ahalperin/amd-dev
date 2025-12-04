@@ -1,0 +1,26 @@
+conda create -n torchcomms python=3.10
+conda activate torchcomms
+conda install conda-forge::glog=0.4.0 conda-forge::gflags conda-forge::fmt conda-forge::libunwind -y
+sudo apt-get update && sudo apt-get install -y libunwind-dev
+
+export BUILD_DIR=/home/amir/amd-dev/dn/torchcomms/comms/rcclx/develop/build/release/build
+export ROCM_HOME=/opt/rocm
+export RCCLX_INCLUDE=${BUILD_DIR}/include/rccl
+export RCCLX_LIB=${BUILD_DIR}/lib
+unset USE_SYSTEM_LIBS
+
+LDFLAGS="-L$CONDA_PREFIX/lib" ./build_rcclx.sh --amdgpu_targets gfx950
+
+./install.sh --prefix build --amdgpu_targets gfx950 --disable-colltrace -j 16
+
+export USE_NCCL=OFF    # Default: ON
+export USE_NCCLX=OFF   # Default: ON
+export USE_GLOO=OFF    # Default: ON
+export USE_RCCL=ON     # Default: OFF
+export USE_RCCLX=ON    # Default: OFF
+
+export USE_SYSTEM_LIBS=0
+
+pip install -r requirements.txt
+pip install --no-build-isolation -v .
+
