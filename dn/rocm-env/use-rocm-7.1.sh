@@ -9,6 +9,8 @@
 #   . use-rocm-7.1.sh
 #
 
+sudo update-alternatives --set rocm /opt/rocm-7.1.1
+
 ROCM_VERSION="7.1.1"
 ROCM_BASE="/opt/rocm-${ROCM_VERSION}"
 

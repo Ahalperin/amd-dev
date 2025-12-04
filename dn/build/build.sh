@@ -116,7 +116,7 @@ echo ""
 
 # set environment variables
 export OMPI_HOME=/opt/ompi-4.1.6/
-export OMPI_LIB_PATH=/opt/ompi-4.1.6/build/ompi/.libs/
+export OMPI_LIB_PATH=/opt/ompi-4.1.6/lib/
 export RCCL_HOME=${DN_DIR}/rccl/
 export RCCL_INSTALL_DIR=${RCCL_HOME}/build/release/
 export ROCM_HOME=/opt/rocm-7.0.1/
