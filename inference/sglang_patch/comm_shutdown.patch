@@ -1,0 +1,238 @@
+diff --git a/python/sglang/srt/distributed/device_communicators/pynccl.py b/python/sglang/srt/distributed/device_communicators/pynccl.py
+index fbb59c477..436f880f2 100644
+--- a/python/sglang/srt/distributed/device_communicators/pynccl.py
++++ b/python/sglang/srt/distributed/device_communicators/pynccl.py
+@@ -1,6 +1,7 @@
+ # Adapted from https://github.com/vllm-project/vllm/blob/v0.6.4.post1/vllm/distributed/device_communicators/pynccl.py
+ 
+ import logging
++import threading
+ from contextlib import contextmanager
+ from typing import Optional, Union
+ 
+@@ -316,6 +317,60 @@ class PyNcclCommunicator:
+     def group_end(self):
+         self.nccl.ncclGroupEnd()
+ 
++    def destroy(self):
++        """
++        Destroy the NCCL communicator.
++        This is a collective operation - all processes in the communicator
++        must call this method. It will block until all processes have called it.
++        
++        To avoid blocking the main process, this runs in a daemon thread.
++        If the operation hangs (e.g., if other processes don't call it),
++        the daemon thread will be terminated when the process exits.
++        """
++        if not self.available or self.world_size == 1:
++            # No communicator was created, nothing to destroy
++            return
++
++        if not hasattr(self, "comm") or self.comm is None:
++            # Already destroyed or never initialized
++            return
++
++        # Store reference to comm and device for the background thread
++        comm_to_destroy = self.comm
++        device_to_use = self.device
++        stream_to_sync = self.stream
++        nccl_lib = self.nccl
++
++        # Mark as destroyed immediately so we don't try to use it
++        self.comm = None
++
++        def _destroy_in_background():
++            """Destroy the communicator in a background thread."""
++            try:
++                # Synchronize the stream before destroying to ensure all operations complete
++                if stream_to_sync is not None:
++                    stream_to_sync.synchronize()
++
++                # Destroy the NCCL communicator
++                # This is a collective call that blocks until all processes call it
++                # Running in a daemon thread prevents blocking the main process
++                with torch.cuda.device(device_to_use):
++                    nccl_lib.ncclCommDestroy(comm_to_destroy)
++                logger.debug("NCCL communicator destroyed")
++            except Exception as e:
++                logger.warning(f"Error destroying NCCL communicator in background thread: {e}")
++
++        # Run destruction in a daemon thread so it doesn't block the main process
++        # If it hangs waiting for other processes, the daemon thread will be
++        # terminated when the process exits
++        destroy_thread = threading.Thread(
++            target=_destroy_in_background,
++            daemon=True,
++            name="nccl-destroy"
++        )
++        destroy_thread.start()
++        logger.debug("NCCL communicator destruction started in background thread")
++
+     @contextmanager
+     def change_state(
+         self, enable: Optional[bool] = None, stream: Optional[torch.cuda.Stream] = None
+diff --git a/python/sglang/srt/distributed/parallel_state.py b/python/sglang/srt/distributed/parallel_state.py
+index 4f410570d..2e71dea2b 100644
+--- a/python/sglang/srt/distributed/parallel_state.py
++++ b/python/sglang/srt/distributed/parallel_state.py
+@@ -1174,6 +1174,11 @@ class GroupCoordinator:
+             torch.distributed.destroy_process_group(self.cpu_group)
+             self.cpu_group = None
+         if self.pynccl_comm is not None:
++            # Properly destroy the NCCL communicator before clearing the reference
++            try:
++                self.pynccl_comm.destroy()
++            except Exception as e:
++                logger.warning(f"Error destroying PyNccl communicator: {e}")
+             self.pynccl_comm = None
+         if self.ca_comm is not None:
+             self.ca_comm = None
+diff --git a/python/sglang/srt/entrypoints/http_server.py b/python/sglang/srt/entrypoints/http_server.py
+index 08f964366..7eec7fbc4 100644
+--- a/python/sglang/srt/entrypoints/http_server.py
++++ b/python/sglang/srt/entrypoints/http_server.py
+@@ -572,6 +572,17 @@ async def flush_cache():
+     )
+ 
+ 
++@app.api_route("/destroy_nccl_comm", methods=["GET", "POST"])
++async def destroy_nccl_comm():
++    """Destroy NCCL communicators in all scheduler processes."""
++    ret = await _global_state.tokenizer_manager.destroy_nccl_comm()
++    return Response(
++        content=f"NCCL communicators {'destroyed successfully' if ret.success else 'destruction failed'}.\n"
++        "Please check backend logs for more details.\n",
++        status_code=200 if ret.success else HTTPStatus.BAD_REQUEST,
++    )
++
++
+ @app.api_route("/clear_hicache_storage_backend", methods=["GET", "POST"])
+ async def clear_hicache_storage_backend():
+     """Clear the hierarchical cache storage backend."""
+diff --git a/python/sglang/srt/managers/io_struct.py b/python/sglang/srt/managers/io_struct.py
+index 16b87e164..3b775c6c5 100644
+--- a/python/sglang/srt/managers/io_struct.py
++++ b/python/sglang/srt/managers/io_struct.py
+@@ -957,6 +957,16 @@ class FlushCacheReqOutput:
+     success: bool
+ 
+ 
++@dataclass
++class DestroyNcclCommReqInput:
++    pass
++
++
++@dataclass
++class DestroyNcclCommReqOutput:
++    success: bool
++
++
+ @dataclass
+ class UpdateWeightFromDiskReqInput:
+     # The model path with the new weights
+diff --git a/python/sglang/srt/managers/scheduler.py b/python/sglang/srt/managers/scheduler.py
+index de2ad078d..570f370e2 100644
+--- a/python/sglang/srt/managers/scheduler.py
++++ b/python/sglang/srt/managers/scheduler.py
+@@ -55,7 +55,11 @@ from sglang.srt.disaggregation.utils import (
+     TransferBackend,
+     prepare_abort,
+ )
+-from sglang.srt.distributed import get_pp_group, get_world_group
++from sglang.srt.distributed import (
++    destroy_model_parallel,
++    get_pp_group,
++    get_world_group,
++)
+ from sglang.srt.eplb.expert_distribution import get_global_expert_distribution_recorder
+ from sglang.srt.hf_transformers_utils import (
+     get_processor,
+@@ -72,6 +76,8 @@ from sglang.srt.managers.io_struct import (
+     ClearHiCacheReqInput,
+     ClearHiCacheReqOutput,
+     CloseSessionReqInput,
++    DestroyNcclCommReqInput,
++    DestroyNcclCommReqOutput,
+     ExpertDistributionReq,
+     ExpertDistributionReqOutput,
+     FlushCacheReqInput,
+@@ -548,6 +554,7 @@ class Scheduler(
+                 (BatchTokenizedEmbeddingReqInput, self.handle_batch_embedding_request),
+                 (FlushCacheReqInput, self.flush_cache_wrapped),
+                 (ClearHiCacheReqInput, self.clear_hicache_storage_wrapped),
++                (DestroyNcclCommReqInput, self.destroy_nccl_comm_wrapped),
+                 (AbortReq, self.abort_request),
+                 (OpenSessionReqInput, self.open_session),
+                 (CloseSessionReqInput, self.close_session),
+@@ -2252,6 +2259,17 @@ class Scheduler(
+             if_success = False
+         return ClearHiCacheReqOutput(success=if_success)
+ 
++    def destroy_nccl_comm_wrapped(self, recv_req: DestroyNcclCommReqInput):
++        """Destroy NCCL communicators in this scheduler process."""
++        try:
++            logger.info("Destroying NCCL communicators...")
++            destroy_model_parallel()
++            logger.info("NCCL communicators destroyed successfully")
++            return DestroyNcclCommReqOutput(success=True)
++        except Exception as e:
++            logger.error(f"Error destroying NCCL communicators: {e}")
++            return DestroyNcclCommReqOutput(success=False)
++
+     def flush_cache(self):
+         """Flush the memory pool and cache."""
+         if (
+@@ -2742,4 +2760,5 @@ def run_scheduler_process(
+     except Exception:
+         traceback = get_exception_traceback()
+         logger.error(f"Scheduler hit an exception: {traceback}")
++        time.sleep(20)
+         parent_process.send_signal(signal.SIGQUIT)
+diff --git a/python/sglang/srt/managers/tokenizer_communicator_mixin.py b/python/sglang/srt/managers/tokenizer_communicator_mixin.py
+index 8970d5ad5..71cd13e36 100644
+--- a/python/sglang/srt/managers/tokenizer_communicator_mixin.py
++++ b/python/sglang/srt/managers/tokenizer_communicator_mixin.py
+@@ -24,6 +24,8 @@ import zmq
+ from sglang.srt.managers.io_struct import (
+     ClearHiCacheReqInput,
+     ClearHiCacheReqOutput,
++    DestroyNcclCommReqInput,
++    DestroyNcclCommReqOutput,
+     ExpertDistributionReq,
+     ExpertDistributionReqOutput,
+     FlushCacheReqInput,
+@@ -179,6 +181,9 @@ class TokenizerCommunicatorMixin:
+         self.clear_hicache_storage_communicator = _Communicator(
+             self.send_to_scheduler, server_args.dp_size
+         )
++        self.destroy_nccl_comm_communicator = _Communicator(
++            self.send_to_scheduler, server_args.dp_size
++        )
+         self.profile_communicator = _Communicator(
+             self.send_to_scheduler, server_args.dp_size
+         )
+@@ -243,6 +248,10 @@ class TokenizerCommunicatorMixin:
+                     ClearHiCacheReqOutput,
+                     self.clear_hicache_storage_communicator.handle_recv,
+                 ),
++                (
++                    DestroyNcclCommReqOutput,
++                    self.destroy_nccl_comm_communicator.handle_recv,
++                ),
+                 (
+                     FlushCacheReqOutput,
+                     self.flush_cache_communicator.handle_recv,
+@@ -284,6 +293,12 @@ class TokenizerCommunicatorMixin:
+             0
+         ]
+ 
++    async def destroy_nccl_comm(self: TokenizerManager) -> DestroyNcclCommReqOutput:
++        """Destroy NCCL communicators in all scheduler processes."""
++        return (
++            await self.destroy_nccl_comm_communicator(DestroyNcclCommReqInput())
++        )[0]
++
+     async def start_profile(
+         self: TokenizerManager,
+         output_dir: Optional[str] = None,
+
