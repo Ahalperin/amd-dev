@@ -1,10 +1,47 @@
 #!/bin/bash
 
-# Variables
-REMOTE_USER="dn"
-PACKAGE_VERSION="develop"
+# Usage function
+usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Deploy RCCL binaries to remote cluster nodes."
+    echo ""
+    echo "Options:"
+    echo "  -u, --user USER          Remote username (default: dn)"
+    echo "  -v, --version VERSION    Package version (default: develop)"
+    echo "  -h, --help               Show this help message"
+    echo ""
+    echo "Environment variables (used if options not provided):"
+    echo "  REMOTE_USER, PACKAGE_VERSION"
+    exit 0
+}
 
-# Configuration
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -u|--user)
+            ARG_REMOTE_USER="$2"
+            shift 2
+            ;;
+        -v|--version)
+            ARG_PACKAGE_VERSION="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
+# Configurable variables (CLI args > environment variables > defaults)
+REMOTE_USER="${ARG_REMOTE_USER:-${REMOTE_USER:-dn}}"
+PACKAGE_VERSION="${ARG_PACKAGE_VERSION:-${PACKAGE_VERSION:-develop}}"
+
+# Fixed configuration
 REMOTE_PASS="drive1234!"
 PACKAGE_FILE="rccl-package.tar"
 REMOTE_DIR="/home/${REMOTE_USER}/rccl-bins/${PACKAGE_VERSION}"
@@ -13,6 +50,12 @@ SOURCE_FILE="/home/amir/rccl-packages/${PACKAGE_VERSION}/${PACKAGE_FILE}"
 # Get script directory and servers file
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVERS_FILE="$SCRIPT_DIR/servers.txt"
+
+# Display configuration
+echo "Configuration:"
+echo "  REMOTE_USER:     $REMOTE_USER"
+echo "  PACKAGE_VERSION: $PACKAGE_VERSION"
+echo ""
 
 # Check if servers file exists
 if [ ! -f "$SERVERS_FILE" ]; then
