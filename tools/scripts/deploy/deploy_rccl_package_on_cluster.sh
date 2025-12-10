@@ -7,25 +7,35 @@ usage() {
     echo "Deploy RCCL binaries to remote cluster nodes."
     echo ""
     echo "Options:"
-    echo "  -u, --user USER          Remote username (default: dn)"
+    echo "  -tu, --to-user USER      User to deploy (default: dn)"
+    echo "  -fu, --from-user USER    User to take the package from (default: dn)"
     echo "  -v, --version VERSION    Package version (default: develop)"
+    echo "  -sv, --show-versions     Show existing package versions in given --from_user"
     echo "  -h, --help               Show this help message"
     echo ""
     echo "Environment variables (used if options not provided):"
-    echo "  REMOTE_USER, PACKAGE_VERSION"
+    echo "  REMOTE_USER, FROM_USER, PACKAGE_VERSION"
     exit 0
 }
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -u|--user)
+        -tu|--to-user)
             ARG_REMOTE_USER="$2"
+            shift 2
+            ;;
+        -fu|--from-user)
+            ARG_FROM_USER="$2"
             shift 2
             ;;
         -v|--version)
             ARG_PACKAGE_VERSION="$2"
             shift 2
+            ;;
+        -sv|--show-versions)
+            SHOW_VERSIONS=true
+            shift
             ;;
         -h|--help)
             usage
@@ -39,13 +49,31 @@ done
 
 # Configurable variables (CLI args > environment variables > defaults)
 REMOTE_USER="${ARG_REMOTE_USER:-${REMOTE_USER:-dn}}"
+FROM_USER="${ARG_FROM_USER:-${FROM_USER:-dn}}"
 PACKAGE_VERSION="${ARG_PACKAGE_VERSION:-${PACKAGE_VERSION:-develop}}"
+
+# Handle --show-versions option
+if [ "$SHOW_VERSIONS" = true ]; then
+    PACKAGES_DIR="/home/${FROM_USER}/rccl-packages"
+    echo "Available package versions for user '${FROM_USER}':"
+    if [ -d "$PACKAGES_DIR" ]; then
+        versions=$(find "$PACKAGES_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort)
+        if [ -n "$versions" ]; then
+            echo "$versions"
+        else
+            echo "(none)"
+        fi
+    else
+        echo "(none)"
+    fi
+    exit 0
+fi
 
 # Fixed configuration
 REMOTE_PASS="drive1234!"
-PACKAGE_FILE="rccl-package.tar"
+PACKAGE_FILE_NAME="rccl-package.tar"
+SOURCE_FILE="/home/${FROM_USER}/rccl-packages/${PACKAGE_VERSION}/${PACKAGE_FILE_NAME}"
 REMOTE_DIR="/home/${REMOTE_USER}/rccl-bins/${PACKAGE_VERSION}"
-SOURCE_FILE="/home/amir/rccl-packages/${PACKAGE_VERSION}/${PACKAGE_FILE}"
 
 # Get script directory and servers file
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -90,7 +118,7 @@ while IFS= read -r REMOTE_HOST || [ -n "$REMOTE_HOST" ]; do
     sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no "$SOURCE_FILE" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/"
 
     echo "Extracting tar file on remote host $REMOTE_HOST..."
-    sshpass -p "$REMOTE_PASS" ssh -n -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "cd $REMOTE_DIR && tar -xvf $PACKAGE_FILE"
+    sshpass -p "$REMOTE_PASS" ssh -n -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "cd $REMOTE_DIR && tar -xvf $PACKAGE_FILE_NAME"
 
 done < "$SERVERS_FILE"
 

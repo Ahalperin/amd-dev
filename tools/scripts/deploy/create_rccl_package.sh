@@ -5,6 +5,7 @@ set -e  # Exit immediately if a command fails
 # Default values
 DEFAULT_USER="dn"
 DEFAULT_VERSION="develop"
+# DEFAULT_VERSION="2025-06-J13A-1"
 
 usage() {
     echo "Usage: $0 [-u user] [-v version]"
@@ -33,10 +34,16 @@ done
 MY_USER="${MY_USER:-$DEFAULT_USER}"
 RCCL_VERSION="${RCCL_VERSION:-$DEFAULT_VERSION}"
 
-# Paths
+# build paths
 RCCL_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/rccl/build/release"
 AMD_ANP_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/amd-anp/build"
 RCCL_TESTS_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/rccl-tests/build"
+# RCCL_BUILD_DIR="/data/networking/2025-06-J13A-1/rccl/build/release"
+# AMD_ANP_BUILD_DIR="/data/networking/2025-06-J13A-1/anp-jun13-ba97c9c-rx-off-dis-mrc/build/"
+# RCCL_TESTS_BUILD_DIR="/data/networking/2025-06-J13A-1/rccl-tests/build/"
+
+
+# package paths
 RCCL_PACKAGES_DIR="/home/${MY_USER}/rccl-packages"
 TMP_PACKAGE_DIR="${RCCL_PACKAGES_DIR}/tmp"
 VERSION_PACKAGE_DIR="${RCCL_PACKAGES_DIR}/${RCCL_VERSION}"
