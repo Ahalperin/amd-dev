@@ -1,0 +1,14 @@
+diff --git a/python/sglang/srt/managers/tp_worker_overlap_thread.py b/python/sglang/srt/managers/tp_worker_overlap_thread.py
+index e34399a41..290295e16 100644
+--- a/python/sglang/srt/managers/tp_worker_overlap_thread.py
++++ b/python/sglang/srt/managers/tp_worker_overlap_thread.py
+@@ -209,6 +209,9 @@ class TpModelWorkerClient:
+                 next_token_ids = next_token_ids.to("cpu", non_blocking=True)
+             copy_done.record()
+ 
++            # Add a sync point here to make is easier to profile a single batch.
++            copy_done.synchronize()
++
+             self.output_queue.put(
+                 (copy_done, logits_output, next_token_ids, can_run_cuda_graph)
+             )

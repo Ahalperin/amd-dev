@@ -30,7 +30,14 @@ print_usage() {
     echo "  --tp TP                 Set tensor parallel size (default: 8)"
     echo "  --ep EP                 Set expert parallel size (default: 1)"
     echo "  --port PORT             Set server port (default: 8888)"
-    echo "  --num-prompts NUM       Set number of prompts for benchmark (default: 50)"
+    echo "  --apply-sync-patch      Apply sync_on_batch.patch for profiling (default: off)"
+    echo "Benchmark Options:"
+    echo "  --num-prompts NUM       Set number of prompts for benchmark (default: 32)"
+    echo "  --concurrency CONC      Set concurrency for benchmark (default: 32)"
+    echo ""
+    echo "Additional Arguments:"
+    echo "  --                      Pass all remaining arguments to the benchmark/server command"
+    echo "                         Example: ./start_server_container.sh server -- --mem-fraction-static 0.8"
 }
 
 # ============================================
@@ -42,10 +49,22 @@ TP_OVERRIDE=""
 EP_OVERRIDE=""
 PORT_OVERRIDE=""
 NUM_PROMPTS_OVERRIDE=""
+CONCURRENCY_OVERRIDE=""
+APPLY_SYNC_PATCH=false
+EXTRA_ARGS=()
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --)
+            # Everything after -- goes to EXTRA_ARGS
+            shift
+            while [[ $# -gt 0 ]]; do
+                EXTRA_ARGS+=("$1")
+                shift
+            done
+            break
+            ;;
         benchmark|server)
             MODE="$1"
             shift
@@ -68,6 +87,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --num-prompts)
             NUM_PROMPTS_OVERRIDE="$2"
+            shift 2
+            ;;
+        --apply-sync-patch)
+            APPLY_SYNC_PATCH=true
+            shift
+            ;;
+        --concurrency)
+            CONCURRENCY_OVERRIDE="$2"
             shift 2
             ;;
         *)
@@ -127,6 +154,12 @@ if [ -n "$NUM_PROMPTS_OVERRIDE" ]; then
     fi
 fi
 
+if [ -n "$CONCURRENCY_OVERRIDE" ]; then
+    if ! [[ "$CONCURRENCY_OVERRIDE" =~ ^[0-9]+$ ]] || [ "$CONCURRENCY_OVERRIDE" -le 0 ]; then
+        echo "ERROR: --concurrency must be a positive integer, got: $CONCURRENCY_OVERRIDE"
+        exit 1
+    fi
+fi
 # ============================================
 # CUSTOM RCCL CONFIGURATION
 # ============================================
@@ -156,12 +189,13 @@ fi
 # ============================================
 export HF_HUB_CACHE="/mnt/hf_hub_cache"
 export MODEL="/mnt/hf_hub_cache/models--deepseek-ai--DeepSeek-R1-0528/snapshots/4236a6af538feda4548eca9ab308586007567f52"
-# export IMAGE="rocm/sgl-dev:v0.5.5.post3-rocm700-mi35x-20251202"
+# export IMAGE="lmsysorg/sglang:v0.5.6.post1-rocm700-mi30x"
 export IMAGE="rocm/7.0:rocm7.0_ubuntu_22.04_sgl-dev-v0.5.2-rocm7.0-mi35x-20250915"
 export TP="${TP_OVERRIDE:-8}"  # Tensor parallel size (can be overridden with --tp)
 export EP="${EP_OVERRIDE:-1}"  # Expert parallel size (can be overridden with --ep)
 export PORT="${PORT_OVERRIDE:-8888}"  # Server port (can be overridden with --port)
 export NUM_PROMPTS="${NUM_PROMPTS_OVERRIDE:-50}"  # Number of prompts (can be overridden with --num-prompts)
+export CONCURRENCY="${CONCURRENCY_OVERRIDE:-32}"  # Concurrency (can be overridden with --concurrency)
 #export NPKIT_FLAGS=0xFFFFFFFFFFFFFFFF
 export NPKIT_FLAGS=0x0000000000000000
 
@@ -179,20 +213,39 @@ echo "    Custom RCCL will be mounted from: $CUSTOM_RCCL_PATH"
 echo ""
 
 # Prepare the command to run inside the container
+# Build patch commands
+PATCH_CMDS="echo '=== Patching SGLang code ===' && \
+    patch -i /workspace/sglang_patch/comm_shutdown.patch -p 1 -d /sgl-workspace/sglang/"
+
+if [ "$APPLY_SYNC_PATCH" == "true" ]; then
+    PATCH_CMDS="$PATCH_CMDS && \
+    patch -i /workspace/sglang_patch/sync_on_batch.patch -p 1 -d /sgl-workspace/sglang/"
+fi
+
+# Build extra arguments string if any were provided
+EXTRA_ARGS_STR=""
+if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then
+    # Properly escape each argument for use in the shell command
+    for arg in "${EXTRA_ARGS[@]}"; do
+        # Use printf %q to properly escape for shell, then wrap in single quotes for the inner command
+        escaped_arg=$(printf %q "$arg")
+        EXTRA_ARGS_STR="$EXTRA_ARGS_STR $escaped_arg"
+    done
+    echo "    Additional arguments: ${EXTRA_ARGS[*]}"
+fi
+
 if [ "$MODE" == "benchmark" ]; then
     echo "=== Running offline benchmark ==="
     DOCKER_CMD="set -e && \
-        echo '=== Patching SGLang code ===' && \
-        patch -i /workspace/sglang_patch/comm_shutdown.patch -p 1 -d /sgl-workspace/sglang/ && \
+        $PATCH_CMDS && \
         echo '=== Starting offline benchmark ===' && \
-        python -m sglang.bench_offline_throughput --model-path \$MODEL --tensor-parallel-size \$TP --dataset-name random --num-prompts \$NUM_PROMPTS --disable-custom-all-reduce --cuda-graph-bs \$NUM_PROMPTS --max-running-requests \$NUM_PROMPTS --skip-warmup --profile --mem-fraction-static 0.6"
+        python -m sglang.bench_offline_throughput --model-path \$MODEL --tensor-parallel-size \$TP --dataset-name random --num-prompts \$NUM_PROMPTS --disable-custom-all-reduce --cuda-graph-bs \$CONCURRENCY --max-running-requests \$CONCURRENCY --skip-warmup --profile --mem-fraction-static 0.6$EXTRA_ARGS_STR"
 else
     echo "=== Launching SGLang server ==="
     DOCKER_CMD="set -e && \
-        echo '=== Patching SGLang code ===' && \
-        patch -i /workspace/sglang_patch/comm_shutdown.patch -p 1 -d /sgl-workspace/sglang/ && \
+        $PATCH_CMDS && \
         echo '=== Starting SGLang server ===' && \
-        python3 -m sglang.launch_server --model-path \$MODEL --host=0.0.0.0 --port \$PORT --tensor-parallel-size \$TP --expert-parallel-size \$EP --trust-remote-code --mem-fraction-static 0.6"
+        python3 -m sglang.launch_server --model-path \$MODEL --host=0.0.0.0 --port \$PORT --tensor-parallel-size \$TP --expert-parallel-size \$EP --trust-remote-code --mem-fraction-static 0.6$EXTRA_ARGS_STR"
 fi
 
 
@@ -214,7 +267,7 @@ docker run $DOCKER_RUN_FLAGS --ipc=host --shm-size=16g --network=$network_name -
 -v $CUSTOM_RCCL_PATH:/opt/rccl/lib:ro \
 -v $CUSTOM_RCCL_NET_PATH:/opt/rccl/lib-net:ro \
 -v $EXTRA_LIBS_PATH:/opt/lib-extra:ro \
--e HF_TOKEN -e HF_HUB_CACHE -e MODEL -e TP -e PORT -e EP -e NUM_PROMPTS \
+-e HF_TOKEN -e HF_HUB_CACHE -e MODEL -e TP -e PORT -e EP -e NUM_PROMPTS -e CONCURRENCY \
 -e SGLANG_USE_AITER=1 \
 -e SGLANG_TORCH_PROFILER_DIR=/workspace/outputs/sglang_profile \
 -e SGLANG_NCCL_SO_PATH=/opt/rccl/lib/librccl.so \

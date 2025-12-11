@@ -16,7 +16,7 @@ export CONC=8  # Concurrency
 export ISL=512  # Input sequence length
 export OSL=512  # Output sequence length
 export RANDOM_RANGE_RATIO=0.8
-export NUM_PROMPTS=50
+export NUM_PROMPTS=48
 
 WORKSPACE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
