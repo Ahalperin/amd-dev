@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
-set -e
+# Single-node SGLang inference benchmark test
+# This script starts a single-node SGLang server and runs a benchmark client against it
 
+set -e
 
 # ============================================
 # BENCHMARK CONFIGURATION
@@ -19,10 +21,11 @@ export RANDOM_RANGE_RATIO=0.8
 export NUM_PROMPTS=48
 
 WORKSPACE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Go up one level to get to inference/ directory
+WORKSPACE="$(cd "$WORKSPACE/.." && pwd)"
 
 network_name="bmk-net"
 server_name="bmk-server"
-client_name="bmk-client"
 
 # Track if we started the server (for cleanup)
 SERVER_STARTED_BY_SCRIPT=false
@@ -37,7 +40,7 @@ else
 
     echo "=== Starting SGLang server using start_server_container.sh ==="
     # Call start_server_container.sh to start the server in detached mode
-    "$WORKSPACE/start_server_container.sh" server --detached --tp $TP --ep $EP --port $PORT
+    "$WORKSPACE/run/start_server_container.sh" server --detached --tp $TP --ep $EP --port $PORT
     SERVER_STARTED_BY_SCRIPT=true
 fi
 
@@ -85,22 +88,17 @@ echo "=== Checking which RCCL library is actually loaded ==="
 docker exec $server_name bash -c "cat /proc/\$(pgrep -f sglang.launch_server | head -1)/maps | grep librccl" || echo "Could not verify loaded RCCL"
 echo ""
 
-echo "=== Running benchmark client with 50 requests ==="
-docker run --rm --network=$network_name --name=$client_name \
--v $HF_HUB_CACHE:$HF_HUB_CACHE:ro \
--v $WORKSPACE:/workspace/ -w /workspace/ \
--e HF_TOKEN \
---entrypoint=python3 \
-$IMAGE \
--m sglang.bench_serving \
---host $server_name --port $PORT --model $MODEL \
---dataset-name random --backend sglang \
---max-concurrency $CONC \
---random-input-len $ISL \
---random-output-len $OSL \
---random-range-ratio $RANDOM_RANGE_RATIO \
---num-prompts $NUM_PROMPTS \
---output-file /workspace/outputs/test_50req_custom_rccl.json
+echo "=== Running benchmark client ==="
+"$WORKSPACE/run/run_benchmark_client.sh" \
+    --host $server_name \
+    --port $PORT \
+    --network-mode $network_name \
+    --conc $CONC \
+    --num-prompts $NUM_PROMPTS \
+    --isl $ISL \
+    --osl $OSL \
+    --random-range-ratio $RANDOM_RANGE_RATIO \
+    --test-name "test_single_node"
 
 mkdir -p $WORKSPACE/outputs/logs
 docker logs $server_name > $WORKSPACE/outputs/logs/server.log 2> $WORKSPACE/outputs/logs/server.error.log
@@ -115,6 +113,4 @@ else
 fi
 
 echo "=== Test complete! ==="
-
-
 
