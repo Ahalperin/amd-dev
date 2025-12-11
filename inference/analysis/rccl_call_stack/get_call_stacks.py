@@ -121,7 +121,7 @@ def build_query(kernel_name, start_ts, duration, max_depth):
   -- Calculate the concatenated string for each initial target slice
   -- Build the ordered stack strings
   stacked_results AS (
-    SELECT orig_id, GROUP_CONCAT(name, ' -> ') as stack FROM ancestors GROUP BY orig_id ORDER BY depth
+    SELECT orig_id, GROUP_CONCAT(name, ' <- ') as stack FROM ancestors GROUP BY orig_id ORDER BY depth
   )
 -- Select the final results and group by the pre-computed stack string
 SELECT
@@ -262,7 +262,7 @@ def main():
             print(f"\nFound {len(result)} unique call stacks:\n", file=output_file)
             for row in result:
                 count = row.count
-                stack = row.stack.replace(" -> ", " ->\n")
+                stack = row.stack.replace(" <- ", " <-\n")
                 print(f"{stack}\nAppeared {count} times\n", file=output_file)
 
         if args.output:
