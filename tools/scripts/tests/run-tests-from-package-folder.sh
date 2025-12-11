@@ -1,6 +1,6 @@
-# export MY_PATH=/home/dn/rccl-bins/drop_2025-08
-# export MY_PATH=/home/dn/rccl-bins/develop
-export MY_PATH=/home/dn/rccl-bins/2025-06-J13A-1
+export MY_PATH=/home/amir/rccl-bins/drop_2025-08
+export MY_PATH=/home/amir/rccl-bins/develop
+export MY_PATH=/home/amir/rccl-bins/2025-06-J13A-1
 
 # 172.30.160.131:8 is under use of GPU mem
 
@@ -36,6 +36,8 @@ export MY_PATH=/home/dn/rccl-bins/2025-06-J13A-1
 -x PATH=/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin \
 -x LD_LIBRARY_PATH=${MY_PATH}:/usr/local/lib: \
 -x LD_PRELOAD=${MY_PATH}/librccl-net.so:${MY_PATH}/librccl.so \
+-x NCCL_IB_QPS_PER_CONNECTION=2 \
+-x NCCL_IB_SPLIT_DATA_ON_QPS=1 \
 ${MY_PATH}/all_reduce_perf -b 1M -e 16G -f 2 -g 1 -n 20 -c 1 -w 5
 
 /opt/ompi-4.1.6/bin/mpirun --np 64 --allow-run-as-root \
@@ -132,6 +134,11 @@ mpirun --np 16 --allow-run-as-root \
 -x NCCL_MIN_NCHANNELS=64 \
 -x NCCL_MAX_NCHANNELS=64 \
 -x NCCL_GFX9_CHEAP_FENCE_OFF=0 \
--x NCCL_DEBUG=VERSION \
+-x NCCL_DEBUG=INFO \
 -x NCCL_DEBUG_FILE=nccl_debug.log \
-${MY_PATH}/all_reduce_perf -b 1M -e 16G -f 2 -g 1 -n 20 -c 1 -w 5
+-x NCCL_IB_QPS_PER_CONNECTION=2 \
+-x NCCL_IB_SPLIT_DATA_ON_QPS=1 \
+-x NCCL_LOCAL_REGISTER=1 \
+-x NCCL_GRAPH_REGISTER=1 \
+-x NCCL_LEGACY_CUDA_REGISTER=1 \
+${MY_PATH}/all_reduce_perf -b 132M -e 132M -f 2 -g 1 -n 20 -c 1 -w 5 -R 1
