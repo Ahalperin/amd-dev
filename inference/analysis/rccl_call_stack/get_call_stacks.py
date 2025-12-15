@@ -11,6 +11,7 @@ from perfetto.trace_processor import TraceProcessor
 def find_function_slices(tp, function_name):
     """Find all CPU slices matching the given function name."""
     function_name_escaped = function_name.replace("'", "''")
+    compare_op = 'like' if '%' in function_name else '='
     query = f"""
     SELECT
       id,
@@ -20,7 +21,7 @@ def find_function_slices(tp, function_name):
       ts + dur as end_ts
     FROM slice
     WHERE
-      name = '{function_name_escaped}'
+      name {compare_op} '{function_name_escaped}'
       AND cat != 'kernel'
     ORDER BY ts
     """

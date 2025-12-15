@@ -23,7 +23,7 @@ set -e
 # ============================================
 export HF_HUB_CACHE="/mnt/hf_hub_cache"
 export MODEL="/mnt/hf_hub_cache/models--deepseek-ai--DeepSeek-R1-0528/snapshots/4236a6af538feda4548eca9ab308586007567f52"
-export IMAGE="rocm/7.0:rocm7.0_ubuntu_22.04_sgl-dev-v0.5.2-rocm7.0-mi35x-20250915"
+export IMAGE="lmsysorg/sglang:v0.5.6.post1-rocm700-mi35x"
 
 # Default values
 HOST=""
@@ -136,6 +136,8 @@ $IMAGE \
 -m sglang.bench_serving \
 --host $HOST --port $PORT --model $MODEL \
 --dataset-name random --backend sglang \
+--dataset-path $HF_HUB_CACHE/datasets/ShareGPT_V3_unfiltered_cleaned_split.json \
+--profile \
 --max-concurrency $CONC \
 --random-input-len $ISL \
 --random-output-len $OSL \
