@@ -35,10 +35,11 @@ EP=1
 PORT=8888
 DIST_PORT=20000
 CONC=8
-ISL=512
-OSL=512
-RANDOM_RANGE_RATIO=0.8
-NUM_PROMPTS=48
+ISL=8000
+OSL=1000
+RANDOM_RANGE_RATIO=1
+NUM_PROMPTS=8
+CLEANUP=true
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -83,9 +84,13 @@ while [[ $# -gt 0 ]]; do
             NUM_PROMPTS="$2"
             shift 2
             ;;
+        --no-cleanup)
+            CLEANUP=false
+            shift 1
+            ;;
         *)
             echo "ERROR: Unknown option '$1'"
-            echo "Usage: $0 [--node1-ip IP] [--node2-ip IP] [--node1-user USER] [--node2-user USER] [--tp TP] [--ep EP] [--port PORT] [--dist-port PORT] [--conc CONC] [--num-prompts NUM]"
+            echo "Usage: $0 [--node1-ip IP] [--node2-ip IP] [--node1-user USER] [--node2-user USER] [--tp TP] [--ep EP] [--port PORT] [--dist-port PORT] [--conc CONC] [--num-prompts NUM] [--no-cleanup]"
             exit 1
             ;;
     esac
@@ -183,9 +188,6 @@ NNODES=2
 
 server_name="bmk-server"
 
-# Track if we started servers (for cleanup)
-SERVERS_STARTED_BY_SCRIPT=false
-
 echo "=== Multi-node SGLang Benchmark Configuration ==="
 echo "  Node 1: ${NODE1_USER}@${NODE1_IP} (rank 0)"
 echo "  Node 2: ${NODE2_USER}@${NODE2_IP} (rank 1)"
@@ -213,8 +215,6 @@ fi
 
 # Start servers if not running
 if [ "$NODE1_RUNNING" == "false" ] || [ "$NODE2_RUNNING" == "false" ]; then
-    SERVERS_STARTED_BY_SCRIPT=true
-    
     # Sync scripts to remote nodes before starting servers
     echo "=== Syncing scripts to remote nodes ==="
     sync_scripts_to_node "$NODE1_IP" "$NODE1_USER" "$NODE1_IS_LOCAL"
@@ -238,6 +238,9 @@ if [ "$NODE1_RUNNING" == "false" ] || [ "$NODE2_RUNNING" == "false" ]; then
     wait $NODE2_PID
     
     echo "=== Servers started, waiting for them to be ready ==="
+else
+    echo "=== Servers are already running, will not clean up ==="
+    CLEANUP=false
 fi
 
 # Wait for both servers to be ready
@@ -273,7 +276,7 @@ echo "=== Node 1 server is ready! ==="
 
 echo "=== Waiting for Node 2 server to be ready ==="
 elapsed=0
-while ! run_on_node2 "docker logs $server_name 2>&1 | grep -q 'Application startup complete'" 2>/dev/null; do
+while ! run_on_node2 "docker logs $server_name 2>&1 | grep -q 'Dummy health check server started'" 2>/dev/null; do
     if ! run_on_node2 "docker ps -q -f name=$server_name | grep -q ." 2>/dev/null; then
         echo ""
         echo "ERROR: Container on Node 2 exited! Showing logs:"
@@ -337,12 +340,12 @@ if [ "$NODE2_IS_LOCAL" == "false" ]; then
     run_on_node2 "cat $WORKSPACE/outputs/logs/node2_server.error.log" > $WORKSPACE/outputs/logs/node2_server.error.log 2>/dev/null || true
 fi
 
-if [ "$SERVERS_STARTED_BY_SCRIPT" == "true" ]; then
+if [ "$CLEANUP" == "true" ]; then
     echo "=== Cleaning up ==="
     run_on_node1 "docker stop $server_name 2>/dev/null || true; docker rm $server_name 2>/dev/null || true" || true
     run_on_node2 "docker stop $server_name 2>/dev/null || true; docker rm $server_name 2>/dev/null || true" || true
 else
-    echo "=== Skipping cleanup (servers were already running) ==="
+    echo "=== Skipping cleanup ==="
 fi
 
 echo "=== Test complete! ==="

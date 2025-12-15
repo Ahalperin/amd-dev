@@ -23,11 +23,12 @@ set -e
 # USAGE FUNCTION
 # ============================================
 print_usage() {
-    echo "Usage: $0 [benchmark|server] [OPTIONS]"
+    echo "Usage: $0 [benchmark|server|interactive] [OPTIONS]"
     echo ""
     echo "Modes:"
-    echo "  benchmark: Run offline benchmark"
-    echo "  server:    Launch SGLang server"
+    echo "  benchmark:   Run offline benchmark"
+    echo "  server:      Launch SGLang server"
+    echo "  interactive: Run container in interactive mode"
     echo ""
     echo "Options:"
     echo "  --detached, -d          Run container in detached mode (for server mode only)"
@@ -77,7 +78,7 @@ while [[ $# -gt 0 ]]; do
             done
             break
             ;;
-        benchmark|server)
+        benchmark|server|interactive)
             MODE="$1"
             shift
             ;;
@@ -137,15 +138,15 @@ if [ -z "$MODE" ]; then
     exit 1
 fi
 
-if [ "$MODE" != "benchmark" ] && [ "$MODE" != "server" ]; then
+if [ "$MODE" != "benchmark" ] && [ "$MODE" != "server" ] && [ "$MODE" != "interactive" ]; then
     echo "ERROR: Invalid mode '$MODE'"
     echo ""
     print_usage
     exit 1
 fi
 
-if [ "$DETACHED" == "true" ] && [ "$MODE" == "benchmark" ]; then
-    echo "WARNING: --detached flag is ignored for benchmark mode"
+if [ "$DETACHED" == "true" ] && [ "$MODE" == "benchmark" ] || [ "$MODE" == "interactive" ]; then
+    echo "WARNING: --detached flag is ignored for benchmark and interactive mode"
     DETACHED=false
 fi
 
@@ -228,7 +229,11 @@ GIT_ROOT=$(git -C "$WORKSPACE" rev-parse --show-toplevel)
 CUSTOM_ROCM_PATH="/opt/rocm-clean/"
 CUSTOM_RCCL_PATH="${GIT_ROOT}/dn/rccl/build/release"
 CUSTOM_RCCL_NET_PATH="${GIT_ROOT}/dn/amd-anp/build"
-EXTRA_LIBS_PATH="/lib/x86_64-linux-gnu"
+EXTRA_LIBS="/lib/x86_64-linux-gnu/libionic.so.1"
+EXTRA_LIBS_MOUNTS=""
+for lib in $EXTRA_LIBS; do
+    EXTRA_LIBS_MOUNTS="$EXTRA_LIBS_MOUNTS -v $lib:$lib:ro"
+done
 
 if [ ! -f "$CUSTOM_RCCL_PATH/librccl.so" ]; then
     echo "ERROR: Custom RCCL not found at $CUSTOM_RCCL_PATH/librccl.so"
@@ -248,9 +253,9 @@ fi
 # ============================================
 export HF_HUB_CACHE="/mnt/hf_hub_cache"
 export MODEL="/mnt/hf_hub_cache/models--deepseek-ai--DeepSeek-R1-0528/snapshots/4236a6af538feda4548eca9ab308586007567f52"
-# export IMAGE="lmsysorg/sglang:v0.5.6.post1-rocm700-mi30x"
-export IMAGE="rocm/7.0:rocm7.0_ubuntu_22.04_sgl-dev-v0.5.2-rocm7.0-mi35x-20250915"
-export TP="${TP_OVERRIDE:-8}"  # Tensor parallel size (can be overridden with --tp)
+export IMAGE="lmsysorg/sglang:v0.5.6.post1-rocm700-mi35x"
+# export IMAGE="rocm/7.0:rocm7.0_ubuntu_22.04_sgl-dev-v0.5.2-rocm7.0-mi35x-20250915"
+export TP="${TP_OVERRIDE:-4}"  # Tensor parallel size (can be overridden with --tp)
 export EP="${EP_OVERRIDE:-1}"  # Expert parallel size (can be overridden with --ep)
 export PORT="${PORT_OVERRIDE:-8888}"  # Server port (can be overridden with --port)
 export NUM_PROMPTS="${NUM_PROMPTS_OVERRIDE:-50}"  # Number of prompts (can be overridden with --num-prompts)
@@ -281,10 +286,12 @@ if [ "$MULTI_NODE" == "true" ]; then
     echo "=== Multi-node mode detected (nnodes=$NNODES, node-rank=$NODE_RANK) ==="
     echo "=== Using host networking for inter-node communication ==="
     NETWORK_MODE="host"
+    export NCCL_SOCKET_IFNAME=enp81s0f1np1
 else
     echo "=== Creating Docker network ==="
     docker network inspect $network_name >/dev/null 2>&1 || docker network create $network_name
     NETWORK_MODE="$network_name"
+    export NCCL_SOCKET_IFNAME=^lo,docker0
 fi
 
 echo "=== Starting SGLang with CUSTOM RCCL (TP=$TP, EP=$EP, PORT=$PORT, MODE=$MODE) ==="
@@ -299,10 +306,13 @@ echo ""
 
 # Prepare the command to run inside the container
 # Build patch commands
-PATCH_CMDS="echo '=== Patching SGLang code ===' && \
-    patch -i /workspace/run/sglang_patch/comm_shutdown.patch -p 1 -d /sgl-workspace/sglang/"
+PATCH_CMDS="echo '=== Patching aiter code ===' && \
+    patch -i /workspace/run/aiter_patch/fix_arg_parsing.patch -p 1 -d /sgl-workspace/aiter/"
 
 if [ "$APPLY_SYNC_PATCH" == "true" ]; then
+    PATCH_CMDS="$PATCH_CMDS && \
+    echo '=== Patching SGLang code ===' && \
+    patch -i /workspace/run/sglang_patch/comm_shutdown.patch -p 1 -d /sgl-workspace/sglang/"
     PATCH_CMDS="$PATCH_CMDS && \
     patch -i /workspace/run/sglang_patch/sync_on_batch.patch -p 1 -d /sgl-workspace/sglang/"
 fi
@@ -325,10 +335,15 @@ if [ "$MODE" == "benchmark" ]; then
         $PATCH_CMDS && \
         echo '=== Starting offline benchmark ===' && \
         python -m sglang.bench_offline_throughput --model-path \$MODEL --tensor-parallel-size \$TP --dataset-name random --num-prompts \$NUM_PROMPTS --disable-custom-all-reduce --cuda-graph-bs \$CONCURRENCY --max-running-requests \$CONCURRENCY --skip-warmup --profile --mem-fraction-static 0.6$EXTRA_ARGS_STR"
+elif [ "$MODE" == "interactive" ]; then
+    echo "=== Running interactive mode ==="
+    echo "python3 -m sglang.launch_server --model-path \$MODEL --host=0.0.0.0 --port \$PORT --tensor-parallel-size \$TP --expert-parallel-size \$EP --trust-remote-code --mem-fraction-static 0.6 --cuda-graph-max-bs 64"
+    echo "python -m sglang.bench_offline_throughput --model-path \$MODEL --tensor-parallel-size \$TP --dataset-name random --num-prompts \$NUM_PROMPTS --disable-custom-all-reduce --cuda-graph-bs \$CONCURRENCY --max-running-requests \$CONCURRENCY --skip-warmup --profile --mem-fraction-static 0.6$EXTRA_ARGS_STR"
+    DOCKER_CMD=""
 else
     echo "=== Launching SGLang server ==="
     # Build the launch_server command
-    SERVER_CMD="python3 -m sglang.launch_server --model-path \$MODEL --host=0.0.0.0 --port \$PORT --tensor-parallel-size \$TP --expert-parallel-size \$EP --trust-remote-code --mem-fraction-static 0.6"
+    SERVER_CMD="python3 -m sglang.launch_server --model-path \$MODEL --host=0.0.0.0 --port \$PORT --tensor-parallel-size \$TP --expert-parallel-size \$EP --trust-remote-code --mem-fraction-static 0.6 --cuda-graph-max-bs 64"
     
     # Add multi-node parameters if in multi-node mode
     if [ "$MULTI_NODE" == "true" ]; then
@@ -353,42 +368,59 @@ fi
 
 mkdir -p $WORKSPACE/outputs/logs
 
-# Build docker run command with appropriate network mode
-DOCKER_NETWORK_ARG=""
-if [ "$NETWORK_MODE" == "host" ]; then
-    DOCKER_NETWORK_ARG="--network=host"
-else
-    DOCKER_NETWORK_ARG="--network=$NETWORK_MODE"
-fi
+# -v $CUSTOM_ROCM_PATH:/opt/rocm-custom:ro \
 
-docker run $DOCKER_RUN_FLAGS --ipc=host --shm-size=16g $DOCKER_NETWORK_ARG --name=$server_name \
---privileged --cap-add=CAP_SYS_ADMIN --device=/dev/kfd --device=/dev/dri \
---cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+# -e SGLANG_NCCL_SO_PATH=/opt/rccl/lib/librccl.so \
+# -e LD_LIBRARY_PATH=/opt/rccl/lib:/opt/rccl/lib-net \
+# -e LD_PRELOAD=/opt/rccl/lib/librccl.so:/opt/rccl/lib-net/librccl-net.so \
+
+docker run $DOCKER_RUN_FLAGS --ipc=host --shm-size=16g --network=$NETWORK_MODE --name=$server_name \
+--privileged \
+--ulimit memlock=-1 \
+--cap-add=CAP_SYS_ADMIN \
+--cap-add=IPC_LOCK \
+--device=/dev/kfd \
+--device=/dev/dri \
+--cap-add=SYS_PTRACE \
+--security-opt seccomp=unconfined \
 -v $HF_HUB_CACHE:$HF_HUB_CACHE \
 -v $WORKSPACE:/workspace/ -w /workspace/ \
--v $CUSTOM_ROCM_PATH:/opt/rocm-custom:ro \
 -v $CUSTOM_RCCL_PATH:/opt/rccl/lib:ro \
 -v $CUSTOM_RCCL_NET_PATH:/opt/rccl/lib-net:ro \
--v $EXTRA_LIBS_PATH:/opt/lib-extra:ro \
+$EXTRA_LIBS_MOUNTS \
 -e HF_TOKEN -e HF_HUB_CACHE -e MODEL -e TP -e PORT -e EP -e NUM_PROMPTS -e CONCURRENCY \
 -e NNODES -e NODE_RANK -e DIST_INIT_ADDR \
+-e AITER_JIT_DIR=/workspace/aiter_jit_cache \
 -e SGLANG_USE_AITER=1 \
+-e SGLANG_ROCM_FUSED_DECODE_MLA=0 \
 -e SGLANG_TORCH_PROFILER_DIR=/workspace/outputs/sglang_profile \
--e SGLANG_NCCL_SO_PATH=/opt/rccl/lib/librccl.so \
--e LD_LIBRARY_PATH=/opt/rocm-custom/lib:/opt/rocm/lib:/opt/rocm/lib64:/opt/rccl/lib:/opt/rccl/lib-net:/opt/lib-extra \
--e LD_PRELOAD=/opt/rccl/lib/librccl.so:/opt/rccl/lib-net/librccl-net.so \
--e NCCL_DEBUG=INFO \
--e NCCL_DEBUG_SUBSYS=INIT,BOOTSTRAP,GRAPH,COLL,P2P,NET,CALL,PROFILE \
+-e IONIC_LOCKFREE=all \
+-e IONIC_PRIVATE_SERVICE_FORCE=1 \
+-e IONIC_RCQ_NUM_PATHS=128 \
+-e IONIC_RCQ_SIGN_BIT=15 \
+-e NCCL_DEBUG_FILE=/workspace/outputs/logs/rccl.debug.%h.%p.log \
+-e NCCL_DEBUG_SUBSYS=INIT,BOOTSTRAP,GRAPH,COLL,P2P,NET,PROXY,CALL,PROFILE,REG \
 -e NCCL_DEBUG_TIMESTAMP_LEVELS=INFO \
+-e NCCL_DEBUG=TRACE \
+-e NCCL_GDR_FLUSH_DISABLE=1 \
+-e NCCL_GDRCOPY_ENABLE=0 \
+-e NCCL_IB_DISABLE=0 \
+-e NCCL_IB_FIFO_TC=192 \
+-e NCCL_IB_GID_INDEX=1 \
+-e NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_7:1,ionic_8:1 \
+-e NCCL_IB_QPS_PER_CONNECTION=1 \
+-e NCCL_IB_TC=104 \
+-e NCCL_IB_TIMEOUT=5 \
+-e NCCL_IB_USE_INLINE=1 \
+-e NCCL_IGNORE_CPU_AFFINITY=1 \
+-e NCCL_P2P_LEVEL=SYS \
+-e NCCL_PXN_DISABLE=0 \
+-e NCCL_SOCKET_IFNAME \
+-e NET_OPTIONAL_RECV_COMPLETION=1 \
+-e RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=1 \
 -e NPKIT_DUMP_DIR=/workspace/outputs/npkit \
 -e NPKIT_FLAGS \
--e NCCL_DEBUG_FILE=/workspace/outputs/logs/rccl.debug.%h.%p.log \
--e NCCL_TOPO_DUMP_FILE=/workspace/outputs/logs/rccl.topo.log \
--e NCCL_GRAPH_DUMP_FILE=/workspace/outputs/logs/rccl.graph.log \
--e NCCL_SOCKET_IFNAME=^lo,docker0 \
--e NCCL_P2P_LEVEL=SYS \
--e NCCL_IB_DISABLE=0 \
 -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 --entrypoint=/bin/bash \
-$IMAGE -c "$DOCKER_CMD"
+$IMAGE ${DOCKER_CMD:+-c "$DOCKER_CMD"}
 

@@ -10,7 +10,6 @@ set -e
 # ============================================
 export HF_HUB_CACHE="/mnt/hf_hub_cache"
 export MODEL="/mnt/hf_hub_cache/models--deepseek-ai--DeepSeek-R1-0528/snapshots/4236a6af538feda4548eca9ab308586007567f52"
-export IMAGE="rocm/7.0:rocm7.0_ubuntu_22.04_sgl-dev-v0.5.2-rocm7.0-mi35x-20250915"
 export TP=8  # Tensor parallel size
 export EP=1  # Expert parallel size
 export PORT=8888
@@ -45,7 +44,7 @@ else
 fi
 
 echo "=== Waiting for server to be ready ==="
-timeout=900
+timeout=1800
 elapsed=0
 while ! docker logs $server_name 2>&1 | grep -q "Application startup complete"; do
     # Check if container is still running

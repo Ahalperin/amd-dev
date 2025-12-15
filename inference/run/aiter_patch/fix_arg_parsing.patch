@@ -1,0 +1,13 @@
+diff --git a/aiter/jit/core.py b/aiter/jit/core.py
+index b8226898..dcb31b47 100644
+--- a/aiter/jit/core.py
++++ b/aiter/jit/core.py
+@@ -871,7 +871,7 @@ def compile_ops(
+                     pattern = r"([\w\.]+(?:\[[^\]]+\])?)\s*\|\s*None"
+                     doc_str = re.sub(pattern, r"Optional[\1]", doc_str)
+                     for el in enum_types:
+-                        doc_str = re.sub(f" aiter.*{el} ", f" {el} ", doc_str)
++                        doc_str = re.sub(f" (module_)?aiter.*{el} ", f" {el} ", doc_str)
+                     namespace = {
+                         "List": List,
+                         "Optional": Optional,
