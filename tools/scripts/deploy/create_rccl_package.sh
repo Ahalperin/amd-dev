@@ -3,28 +3,31 @@
 set -e  # Exit immediately if a command fails
 
 # Default values
-DEFAULT_USER="dn"
+DEFAULT_USER=$USER
 DEFAULT_VERSION="develop"
 # DEFAULT_VERSION="2025-06-J13A-1"
 
 usage() {
-    echo "Usage: $0 [-u user] [-v version]"
+    echo "Usage: $0 [-u user] [-v version] [-d docker_image]"
     echo ""
     echo "Options:"
-    echo "  -u USER      Username for paths (default: $DEFAULT_USER)"
-    echo "  -v VERSION   RCCL version/tag name (default: $DEFAULT_VERSION)"
-    echo "  -h           Show this help message"
+    echo "  -u USER          Username for paths (default: $DEFAULT_USER)"
+    echo "  -v VERSION       RCCL version/tag name (default: $DEFAULT_VERSION)"
+    echo "  -d DOCKER_IMAGE  Docker image to extract files from (optional)"
+    echo "  -h               Show this help message"
     echo ""
     echo "Example:"
     echo "  $0 -u myuser -v release-1.0"
+    echo "  $0 -u myuser -v release-1.0 -d rccl-build:7.1.1-develop-main"
     exit 1
 }
 
 # Parse command-line arguments
-while getopts "u:v:h" opt; do
+while getopts "u:v:d:h" opt; do
     case $opt in
         u) MY_USER="$OPTARG" ;;
         v) RCCL_VERSION="$OPTARG" ;;
+        d) DOCKER_IMAGE="$OPTARG" ;;
         h) usage ;;
         *) usage ;;
     esac
@@ -33,14 +36,6 @@ done
 # Use defaults if not provided
 MY_USER="${MY_USER:-$DEFAULT_USER}"
 RCCL_VERSION="${RCCL_VERSION:-$DEFAULT_VERSION}"
-
-# build paths
-RCCL_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/rccl/build/release"
-AMD_ANP_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/amd-anp/build"
-RCCL_TESTS_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/rccl-tests/build"
-# RCCL_BUILD_DIR="/data/networking/2025-06-J13A-1/rccl/build/release"
-# AMD_ANP_BUILD_DIR="/data/networking/2025-06-J13A-1/anp-jun13-ba97c9c-rx-off-dis-mrc/build/"
-# RCCL_TESTS_BUILD_DIR="/data/networking/2025-06-J13A-1/rccl-tests/build/"
 
 
 # package paths
@@ -51,22 +46,80 @@ VERSION_PACKAGE_DIR="${RCCL_PACKAGES_DIR}/${RCCL_VERSION}"
 echo "Creating RCCL package with:"
 echo "  User: $MY_USER"
 echo "  Version: $RCCL_VERSION"
+if [ -n "$DOCKER_IMAGE" ]; then
+    echo "  Docker Image: $DOCKER_IMAGE"
+fi
 echo "  Output: $VERSION_PACKAGE_DIR/rccl-package.tar"
 echo ""
 
 # make sure the temporary package directory exists
 mkdir -p "$TMP_PACKAGE_DIR"
 
-# copy rccl bins
-cp "$RCCL_BUILD_DIR/librccl.so.1.0" "$TMP_PACKAGE_DIR/."
-ln -s librccl.so.1.0 "$TMP_PACKAGE_DIR/librccl.so.1"
-ln -s librccl.so.1.0 "$TMP_PACKAGE_DIR/librccl.so"
+# Function to copy files from host
+copy_from_host() {
+    # build paths
+    RCCL_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/rccl/build/release"
+    AMD_ANP_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/amd-anp/build"
+    RCCL_TESTS_BUILD_DIR="/home/${MY_USER}/amd-dev/dn/rccl-tests/build"
 
-# copy amd-anp bins
-cp "$AMD_ANP_BUILD_DIR/librccl-net.so" "$TMP_PACKAGE_DIR/."
+    # copy rccl bins
+    cp "$RCCL_BUILD_DIR/librccl.so.1.0" "$TMP_PACKAGE_DIR/."
+    ln -s librccl.so.1.0 "$TMP_PACKAGE_DIR/librccl.so.1"
+    ln -s librccl.so.1.0 "$TMP_PACKAGE_DIR/librccl.so"
 
-# copy rccl-tests executables using find from build directory
-find "$RCCL_TESTS_BUILD_DIR" -type f -executable | xargs -I {} cp {} "$TMP_PACKAGE_DIR/."
+    # copy amd-anp bins
+    cp "$AMD_ANP_BUILD_DIR/librccl-net.so" "$TMP_PACKAGE_DIR/."
+
+    # copy rccl-tests executables using find from build directory
+    find "$RCCL_TESTS_BUILD_DIR" -type f -executable | xargs -I {} cp {} "$TMP_PACKAGE_DIR/."
+}
+
+# Function to copy files from docker container
+copy_from_docker() {
+    # build paths
+    RCCL_BUILD_DIR="/workspace/rccl/build/release"
+    AMD_ANP_BUILD_DIR="/workspace/amd-anp/build"
+    RCCL_TESTS_BUILD_DIR="/workspace/rccl-tests/build"
+
+    local container_id="$1"
+    
+    # copy rccl bins
+    docker cp "$container_id:$RCCL_BUILD_DIR/librccl.so.1.0" "$TMP_PACKAGE_DIR/."
+    ln -s librccl.so.1.0 "$TMP_PACKAGE_DIR/librccl.so.1"
+    ln -s librccl.so.1.0 "$TMP_PACKAGE_DIR/librccl.so"
+
+    # copy amd-anp bins
+    docker cp "$container_id:$AMD_ANP_BUILD_DIR/librccl-anp.so" "$TMP_PACKAGE_DIR/."
+    ln -s librccl-anp.so "$TMP_PACKAGE_DIR/librccl-net.so"
+
+    # copy rccl-tests executables using find from build directory
+    # First, get the list of executables from the container
+    docker exec "$container_id" find "$RCCL_TESTS_BUILD_DIR" -type f -executable -name "*_perf" | while read -r file; do
+        docker cp "$container_id:$file" "$TMP_PACKAGE_DIR/."
+    done
+}
+
+# Copy files from docker image or host
+if [ -n "$DOCKER_IMAGE" ]; then
+    # Create and start a temporary container from the docker image
+    # Use 'sleep infinity' to keep the container running
+    echo "Creating temporary container from image: $DOCKER_IMAGE"
+    CONTAINER_ID=$(docker run -d "$DOCKER_IMAGE" sleep infinity)
+    
+    # Ensure container is removed even if script fails
+    trap "docker rm -f $CONTAINER_ID 2>/dev/null || true" EXIT
+    
+    echo "Copying files from container..."
+    copy_from_docker "$CONTAINER_ID"
+    
+    # Stop and remove the temporary container
+    docker stop "$CONTAINER_ID" >/dev/null
+    docker rm -f "$CONTAINER_ID" >/dev/null
+    trap - EXIT
+else
+    # Copy from host filesystem
+    copy_from_host
+fi
 
 # make sure the version package directory exists
 mkdir -p "$VERSION_PACKAGE_DIR"
