@@ -1,0 +1,156 @@
+## Enhanced RCCL Builder Docker Image with Advanced Profiling Support
+## This Dockerfile provides options for different ROCm versions and enhanced profiling
+
+## ROCm version selection - can be overridden at build time
+
+ARG ROCM_VERSION=7.1.1
+ARG ROCM_IMAGE_NAME=rocm/dev-ubuntu-22.04
+ARG ROCM_IMAGE_TAG=${ROCM_VERSION}-complete
+
+FROM "${ROCM_IMAGE_NAME}:${ROCM_IMAGE_TAG}"
+
+## rccl repo
+ARG RCCL_REPO=https://github.com/ROCm/rccl
+ARG RCCL_BRANCH=develop
+
+## rccl-tests repo
+ARG RCCL_TESTS_REPO=https://github.com/ROCm/rccl-tests
+ARG RCCL_TESTS_BRANCH=develop
+
+## net plugin repo
+ARG AMD_ANP_REPO=https://github.com/rocm/amd-anp.git
+ARG AMD_ANP_BRANCH=main
+ARG AMD_ANP_PATCH=1
+
+## AMD GPU Targets
+ARG GPU_TARGETS=gfx950
+
+## Set ROCm path
+ENV ROCM_PATH=/opt/rocm
+
+## Create workspace directory
+ENV WORKDIR=/workspace
+RUN mkdir -p ${WORKDIR}
+WORKDIR ${WORKDIR}
+
+## Install build dependencies
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    git \
+    make \
+    cmake \
+    build-essential \
+    libnuma-dev \
+    pkg-config \
+    wget \
+    jq \
+    initramfs-tools \
+    libibverbs-dev \
+    libfmt-dev \
+    libboost-all-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ionic driver required for the network plugin
+# Copy pre-downloaded host_sw_pkg.tar.gz from context (should be present in ./data/host_sw_pkg.tar.gz)
+COPY ./data/ainic_bundle/host_sw_pkg.tar.gz /tmp/
+RUN tar -xzf /tmp/host_sw_pkg.tar.gz -C /tmp/ \
+    && cd /tmp/host_sw_pkg \
+    && ./install.sh -y || true \
+    && cd .. \
+    && rm -rf /tmp/host_sw_pkg* \
+    && dpkg -l libionic-dev > /dev/null
+
+## Install OpenMPI (optional but commonly used for rccl-tests and network plugin)
+ENV MPI_INSTALL_PREFIX=/opt/ompi
+RUN wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.6.tar.gz \
+    && mkdir -p ompi4 \
+    && tar -zxf openmpi-4.1.6.tar.gz -C ompi4 --strip-components=1 \
+    && cd ompi4 \
+    && mkdir build \
+    && cd build \
+    && ../configure --prefix=${MPI_INSTALL_PREFIX} --disable-oshmem --disable-mpi-fortran --enable-orterun-prefix-by-default \
+    && make -j$(nproc) install \
+    && cd ${WORKDIR} \
+    && rm -rf ompi4 openmpi-4.1.6.tar.gz
+
+## Clone RCCL repository
+RUN git clone --recursive -b "${RCCL_BRANCH}" "${RCCL_REPO}" ${WORKDIR}/rccl
+
+## Build RCCL
+## Using install.sh script with prefix to install to build directory
+## Disabling MSCCL++ and MSCCL kernel for faster builds (can be enabled if needed)
+## The --prefix flag automatically enables installation to that directory
+RUN cd ${WORKDIR}/rccl \
+    && ./install.sh \
+        --amdgpu_targets=${GPU_TARGETS} \
+        --prefix=${WORKDIR}/rccl/build \
+        --disable-msccl-kernel \
+        -j$(nproc)
+
+## Set RCCL paths for subsequent builds
+## RCCL_HOME: source directory
+## RCCL_BUILD: build directory where hipify directory and build artifacts are located (build/release/)
+##   Note: After install, librccl.so is in build/lib/, but hipify stays in build/release/hipify/
+##   The amd-anp Makefile uses RCCL_BUILD to find both, so we point to build/release/ where hipify is
+## RCCL_INSTALL_DIR: install directory where headers and libraries are installed (build/)
+ENV RCCL_HOME=${WORKDIR}/rccl
+ENV RCCL_BUILD=${WORKDIR}/rccl/build/release
+ENV RCCL_INSTALL_DIR=${WORKDIR}/rccl/build
+
+## Clone RCCL-Tests repository
+RUN git clone -b "${RCCL_TESTS_BRANCH}" "${RCCL_TESTS_REPO}" ${WORKDIR}/rccl-tests
+
+## Build RCCL-Tests using CMake
+## RCCL-Tests can find RCCL via CMAKE_PREFIX_PATH pointing to RCCL install directory
+## USE_MPI=ON enables MPI support (optional, can be set to OFF if not needed)
+RUN cd ${WORKDIR}/rccl-tests \
+    && mkdir -p build \
+    && cd build \
+    && cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DUSE_MPI=ON \
+        -DCMAKE_PREFIX_PATH="${RCCL_INSTALL_DIR};${MPI_INSTALL_PREFIX};${ROCM_PATH}" \
+        -DGPU_TARGETS=${GPU_TARGETS} \
+        -DROCM_PATH=${ROCM_PATH} \
+        .. \
+    && make -j$(nproc)
+
+## Clone AMD-ANP (network plugin) repository
+RUN git clone -b "${AMD_ANP_BRANCH}" "${AMD_ANP_REPO}" ${WORKDIR}/amd-anp
+
+## Optionally apply AMD-ANP patch if requested by build arg
+COPY ./data/patch/amd-anp-dev.patch /data/patch/amd-anp-dev.patch
+RUN if [ "${AMD_ANP_PATCH}" = "1" ]; then \
+        cd ${WORKDIR}/amd-anp && \
+        patch -p1 -i /data/patch/amd-anp-dev.patch; \
+    fi
+
+
+## Build AMD-ANP network plugin
+## The plugin requires RCCL_HOME pointing to RCCL source and RCCL_BUILD pointing to build directory
+## RCCL_BUILD should point to build/release/ where hipify directory is located
+## The Makefile will look for librccl.so in RCCL_BUILD, but after install it's in build/lib/
+## So we create a symlink or ensure the path is correct
+## MPI_INCLUDE and MPI_LIB_PATH are optional but recommended if MPI is available
+RUN cd ${WORKDIR}/amd-anp \
+    && if [ ! -f ${RCCL_BUILD}/librccl.so ] && [ -f ${RCCL_INSTALL_DIR}/lib/librccl.so ]; then \
+        ln -sf ${RCCL_INSTALL_DIR}/lib/librccl.so ${RCCL_BUILD}/librccl.so; \
+    fi \
+    && make \
+        RCCL_HOME=${RCCL_HOME} \
+        RCCL_BUILD=${RCCL_BUILD} \
+        ROCM_PATH=${ROCM_PATH} \
+        MPI_INCLUDE=${MPI_INSTALL_PREFIX}/include \
+        MPI_LIB_PATH=${MPI_INSTALL_PREFIX}/lib \
+        -j$(nproc)
+
+## Install AMD-ANP plugin to ROCm lib directory
+RUN cd ${WORKDIR}/amd-anp \
+    && make \
+        RCCL_HOME=${RCCL_HOME} \
+        ROCM_PATH=${ROCM_PATH} \
+        install
+
+## Set working directory back to workspace
+WORKDIR ${WORKDIR}

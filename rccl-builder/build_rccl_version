@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+#
+# Build RCCL Docker image with configurable versions
+# This script allows overriding all version-related build arguments
+
+set -e
+
+# Default values
+ROCM_VERSION="7.1.1"
+ROCM_IMAGE_NAME="rocm/dev-ubuntu-22.04"
+ROCM_IMAGE_TAG=""  # Will be set to ${ROCM_VERSION}-complete if not provided
+RCCL_REPO="https://github.com/ROCm/rccl"
+RCCL_BRANCH="develop"
+RCCL_TESTS_REPO="https://github.com/ROCm/rccl-tests"
+RCCL_TESTS_BRANCH="develop"
+AMD_ANP_REPO="https://github.com/rocm/amd-anp.git"
+AMD_ANP_BRANCH="main"
+GPU_TARGETS="gfx950"
+DOCKERFILE="Dockerfile.rccl_build"
+IMAGE_NAME="rccl-build"
+IMAGE_TAG=""  # Will be constructed from ROCM_VERSION, RCCL_BRANCH, and AMD_ANP_BRANCH
+NO_CACHE=""
+
+# Function to print usage
+print_usage() {
+    cat << 'EOF'
+Usage:
+  ./build_rccl_version [OPTIONS]
+
+Options:
+  --rocm-version VERSION       ROCm version (default: 7.1.1)
+  --rocm-image-name NAME       ROCm base image name (default: rocm/dev-ubuntu-22.04)
+  --rocm-image-tag TAG         ROCm base image tag (default: ${ROCM_VERSION}-complete)
+  --rccl-repo URL              RCCL repository URL (default: https://github.com/ROCm/rccl)
+  --rccl-branch BRANCH         RCCL branch to build (default: develop)
+  --rccl-tests-repo URL        RCCL-Tests repository URL (default: https://github.com/ROCm/rccl-tests)
+  --rccl-tests-branch BRANCH   RCCL-Tests branch (default: develop)
+  --amd-anp-repo URL           AMD-ANP repository URL (default: https://github.com/rocm/amd-anp.git)
+  --amd-anp-branch BRANCH      AMD-ANP branch (default: main)
+  --gpu-targets TARGETS        GPU targets (default: gfx950)
+  --image-name NAME            Docker image name (default: rccl-build)
+  --image-tag TAG              Docker image tag (default: constructed from ROCM_VERSION, RCCL_BRANCH, AMD_ANP_BRANCH)
+  --no-cache                   Build without using cache
+  --help, -h                   Show this help message
+
+Examples:
+  # Build with default settings
+  ./build_rccl_version
+
+  # Build with ROCm 7.0.1
+  ./build_rccl_version --rocm-version 7.0.1
+
+  # Build with custom RCCL branch
+  ./build_rccl_version --rccl-branch release/rocm-7.1.1
+
+  # Build with multiple GPU targets
+  ./build_rccl_version --gpu-targets "gfx942;gfx950"
+
+  # Build with all custom options
+  ./build_rccl_version \
+    --rocm-version 7.1.1 \
+    --rccl-branch release/rocm-7.1.1 \
+    --gpu-targets gfx950 \
+    --image-name rccl-build \
+    --image-tag 7.1.1
+EOF
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --rocm-version)
+            ROCM_VERSION="$2"
+            shift 2
+            ;;
+        --rocm-image-name)
+            ROCM_IMAGE_NAME="$2"
+            shift 2
+            ;;
+        --rocm-image-tag)
+            ROCM_IMAGE_TAG="$2"
+            shift 2
+            ;;
+        --rccl-repo)
+            RCCL_REPO="$2"
+            shift 2
+            ;;
+        --rccl-branch)
+            RCCL_BRANCH="$2"
+            shift 2
+            ;;
+        --rccl-tests-repo)
+            RCCL_TESTS_REPO="$2"
+            shift 2
+            ;;
+        --rccl-tests-branch)
+            RCCL_TESTS_BRANCH="$2"
+            shift 2
+            ;;
+        --amd-anp-repo)
+            AMD_ANP_REPO="$2"
+            shift 2
+            ;;
+        --amd-anp-branch)
+            AMD_ANP_BRANCH="$2"
+            shift 2
+            ;;
+        --gpu-targets)
+            GPU_TARGETS="$2"
+            shift 2
+            ;;
+        --image-name)
+            IMAGE_NAME="$2"
+            shift 2
+            ;;
+        --image-tag)
+            IMAGE_TAG="$2"
+            shift 2
+            ;;
+        --no-cache)
+            NO_CACHE="--no-cache"
+            shift
+            ;;
+        --help|-h)
+            print_usage
+            exit 0
+            ;;
+        *)
+            echo "ERROR: Unknown option '$1'"
+            echo ""
+            print_usage
+            exit 1
+            ;;
+    esac
+done
+
+# Set default ROCM_IMAGE_TAG if not provided
+if [ -z "$ROCM_IMAGE_TAG" ]; then
+    ROCM_IMAGE_TAG="${ROCM_VERSION}-complete"
+fi
+
+# Function to sanitize branch names for Docker image tags
+# Docker tags can contain: lowercase letters, digits, underscores, periods, hyphens
+sanitize_for_tag() {
+    echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g'
+}
+
+# Set default IMAGE_TAG if not provided
+# Construct from ROCM_VERSION, RCCL_BRANCH, and AMD_ANP_BRANCH
+if [ -z "$IMAGE_TAG" ]; then
+    ROCM_VERSION_SANITIZED=$(sanitize_for_tag "$ROCM_VERSION")
+    RCCL_BRANCH_SANITIZED=$(sanitize_for_tag "$RCCL_BRANCH")
+    AMD_ANP_BRANCH_SANITIZED=$(sanitize_for_tag "$AMD_ANP_BRANCH")
+    IMAGE_TAG="${ROCM_VERSION_SANITIZED}-${RCCL_BRANCH_SANITIZED}-${AMD_ANP_BRANCH_SANITIZED}"
+fi
+
+# Validate Dockerfile exists
+if [ ! -f "$DOCKERFILE" ]; then
+    echo "ERROR: Dockerfile '$DOCKERFILE' not found"
+    exit 1
+fi
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Build Docker command
+echo "=========================================="
+echo "Building RCCL Docker Image"
+echo "=========================================="
+echo ""
+echo "Configuration:"
+echo "  ROCm Version:        $ROCM_VERSION"
+echo "  ROCm Image Name:     $ROCM_IMAGE_NAME"
+echo "  ROCm Image Tag:      $ROCM_IMAGE_TAG"
+echo "  RCCL Repo:           $RCCL_REPO"
+echo "  RCCL Branch:         $RCCL_BRANCH"
+echo "  RCCL-Tests Repo:     $RCCL_TESTS_REPO"
+echo "  RCCL-Tests Branch:   $RCCL_TESTS_BRANCH"
+echo "  AMD-ANP Repo:        $AMD_ANP_REPO"
+echo "  AMD-ANP Branch:      $AMD_ANP_BRANCH"
+echo "  GPU Targets:         $GPU_TARGETS"
+echo "  Dockerfile:          $DOCKERFILE"
+echo "  Image Name:          $IMAGE_NAME"
+echo "  Image Tag:           $IMAGE_TAG"
+echo "  No Cache:            ${NO_CACHE:-false}"
+echo ""
+echo "=========================================="
+echo ""
+
+# Build the Docker image
+docker build $NO_CACHE \
+    --build-arg ROCM_VERSION="$ROCM_VERSION" \
+    --build-arg ROCM_IMAGE_NAME="$ROCM_IMAGE_NAME" \
+    --build-arg ROCM_IMAGE_TAG="$ROCM_IMAGE_TAG" \
+    --build-arg RCCL_REPO="$RCCL_REPO" \
+    --build-arg RCCL_BRANCH="$RCCL_BRANCH" \
+    --build-arg RCCL_TESTS_REPO="$RCCL_TESTS_REPO" \
+    --build-arg RCCL_TESTS_BRANCH="$RCCL_TESTS_BRANCH" \
+    --build-arg AMD_ANP_REPO="$AMD_ANP_REPO" \
+    --build-arg AMD_ANP_BRANCH="$AMD_ANP_BRANCH" \
+    --build-arg GPU_TARGETS="$GPU_TARGETS" \
+    -f "$DOCKERFILE" \
+    -t "${IMAGE_NAME}:${IMAGE_TAG}" \
+    "$SCRIPT_DIR"
+
+echo ""
+echo "=========================================="
+echo "Build Complete!"
+echo "=========================================="
+echo ""
+echo "Image: ${IMAGE_NAME}:${IMAGE_TAG}"
+echo ""
+echo "To run the container:"
+echo "  docker run -it --device=/dev/kfd --device=/dev/dri \\"
+echo "    --security-opt seccomp=unconfined \\"
+echo "    ${IMAGE_NAME}:${IMAGE_TAG}"
+echo ""
