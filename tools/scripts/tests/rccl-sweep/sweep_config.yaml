@@ -1,0 +1,101 @@
+# RCCL Test Sweep Configuration
+# This file contains default settings for the sweep tool.
+# Command-line arguments override these defaults.
+
+# MPI Configuration
+mpi:
+  bind_to: "numa"
+  allow_run_as_root: true
+  oob_tcp_if: "enp81s0f1np1"
+  btl_tcp_if: "enp81s0f1np1"
+
+# Test Defaults (rccl-tests parameters)
+test_defaults:
+  min_bytes: "1M"           # -b parameter
+  max_bytes: "16G"          # -e parameter
+  step_factor: 2            # -f parameter
+  gpus_per_rank: 1          # -g parameter
+  iterations: 20            # -n parameter
+  warmup_iters: 5           # -w parameter
+  check_iters: 1            # -c parameter
+  report_cputime: 1         # -R parameter (report CPU time)
+  timeout: 600              # seconds per test
+
+# Node Configuration
+nodes:
+  gpus_per_node: 8
+
+# Collectives to test (when --collective all is used)
+collectives:
+  - all_reduce_perf
+  - reduce_scatter_perf
+  - all_gather_perf
+  - alltoall_perf
+  - broadcast_perf
+  - reduce_perf
+
+# Paths Configuration
+paths:
+  # Single path containing both RCCL library and rccl-tests executables
+  # Set MY_PATH environment variable before running, or override here with absolute path
+  # Example: export MY_PATH=/home/amir/rccl-bins/develop
+  rccl_path: "${MY_PATH}"
+
+# Fixed Environment Variables
+# These are set for all test runs
+env_vars:
+  # Path configuration
+  PATH: "/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"
+  
+  # Network interface
+  NCCL_SOCKET_IFNAME: "enp81s0f1np1"
+  
+  # InfiniBand HCA configuration
+  NCCL_IB_HCA: "ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1"
+  NCCL_IB_GID_INDEX: 1
+  
+  # GDR settings
+  NCCL_GDR_FLUSH_DISABLE: 1
+  RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING: 0
+  NCCL_GDRCOPY_ENABLE: 0
+  
+  # InfiniBand settings
+  NCCL_IB_QPS_PER_CONNECTION: 2
+  NCCL_IB_TC: 104
+  NCCL_IB_FIFO_TC: 192
+  NCCL_IB_SPLIT_DATA_ON_QPS: 1
+  NCCL_IB_USE_INLINE: 1
+  
+  # Other NCCL settings
+  HSA_NO_SCRATCH_RECLAIM: 1
+  NCCL_IGNORE_CPU_AFFINITY: 1
+  NET_OPTIONAL_RECV_COMPLETION: 1
+  IONIC_LOCKFREE: "all"
+  NCCL_PXN_DISABLE: 0
+  NCCL_GFX9_CHEAP_FENCE_OFF: 0
+  
+  # Registration settings
+  NCCL_LOCAL_REGISTER: 1
+  NCCL_GRAPH_REGISTER: 1
+  NCCL_LEGACY_CUDA_REGISTER: 1
+  
+  # DMA buffer
+  NCCL_DMABUF_ENABLE: 0
+  
+  # Debug level
+  NCCL_DEBUG: "VERSION"
+
+# Channel configuration is passed via CLI (--channels MIN:MAX:STEP)
+# These will override NCCL_MIN_NCHANNELS and NCCL_MAX_NCHANNELS
+
+# Output Configuration
+output:
+  # Base directory for results
+  results_dir: "sweep_results"
+  
+  # Database filename
+  database: "sweep_results.db"
+  
+  # Save detailed logs
+  save_logs: true
+
