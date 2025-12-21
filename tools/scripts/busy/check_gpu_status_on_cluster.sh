@@ -14,9 +14,15 @@ fi
 echo "Checking GPU status on servers..."
 echo "=================================================================="
 
-while IFS= read -r server || [[ -n "$server" ]]; do
-    # Skip empty lines and comments
-    [[ -z "$server" || "$server" =~ ^# ]] && continue
+while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip empty lines and comment lines (starting with #)
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
+    # Strip inline comments (everything after #) and trim whitespace
+    server="${line%%#*}"
+    server="${server%% }"
+    server="${server## }"
+    [[ -z "$server" ]] && continue
 
     # Check GPU status via SSH (-n prevents SSH from consuming stdin)
     # Get the first GPU process name (excluding gpuagent) if GPUs are in use
