@@ -11,7 +11,7 @@ mpi:
 
 # Test Defaults (rccl-tests parameters)
 test_defaults:
-  min_bytes: "1M"           # -b parameter
+  min_bytes: "4K"           # -b parameter
   max_bytes: "16G"          # -e parameter
   step_factor: 2            # -f parameter
   gpus_per_rank: 1          # -g parameter

@@ -383,8 +383,8 @@ Examples:
   # Run on node range (1 to 4 nodes)
   %(prog)s --nodes 1-4 --channels 4:64:4
 
-  # Run on node range (2 to 4 nodes)
-  %(prog)s --nodes 2-4 --channels 4:64:4
+  # Custom message sizes (default: 1M to 16G)
+  %(prog)s --channels 4:64:4 --min-bytes 256M --max-bytes 1G
 
   # Dry run - show commands without executing
   %(prog)s --channels 4:64:4 --dry-run

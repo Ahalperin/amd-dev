@@ -44,9 +44,14 @@ class SweepExecutor:
         with open(servers_file, 'r') as f:
             for line in f:
                 line = line.strip()
-                # Skip empty lines and comments
-                if line and not line.startswith('#'):
-                    # Take only the IP part (in case there's additional info)
+                # Skip empty lines and lines starting with #
+                if not line or line.startswith('#'):
+                    continue
+                # Remove inline comments (anything after #)
+                if '#' in line:
+                    line = line.split('#')[0].strip()
+                # Take only the IP part (first word, in case there's additional info)
+                if line:
                     ip = line.split()[0]
                     servers.append(ip)
         return servers

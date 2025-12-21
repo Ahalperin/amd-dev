@@ -33,8 +33,15 @@ conda activate rccl-sweep
 
 1. **Create servers file** with your node IPs:
    ```bash
-   cp servers.txt.sample servers.txt
-   # Edit servers.txt with your actual server IPs
+   # Create servers.txt with one IP per line
+   # Comments after IP or lines starting with # are ignored
+   ```
+   Example `servers.txt`:
+   ```
+   172.30.160.145
+   172.30.160.150
+   172.30.160.204  # node 3
+   #172.30.160.193  # commented out - will be skipped
    ```
 
 2. **Set MY_PATH** environment variable pointing to directory with RCCL libs and rccl-tests executables:
@@ -63,7 +70,7 @@ conda activate rccl-sweep
 ## CLI Reference
 
 ```
-usage: rccl_sweep.py [-h] --servers SERVERS --channels CHANNELS
+usage: rccl_sweep.py [-h] [--servers SERVERS] --channels CHANNELS
                      [--collective {all,all_reduce,reduce_scatter,all_gather,alltoall,broadcast,reduce}]
                      [--nodes NODES] [--config CONFIG] [--min-bytes MIN_BYTES]
                      [--max-bytes MAX_BYTES] [--dry-run] [--verbose]
@@ -72,11 +79,11 @@ Options:
   --servers, -s       Path to servers.txt file with node IPs (default: ./servers.txt)
   --channels, -c      Channel range as MIN:MAX:STEP, e.g., "4:64:4" (required)
   --collective        Specific collective or "all" (default: all)
-  --nodes, -n         Specific node count (default: all available 1-N)
+  --nodes, -n         Node count or range: N or MIN-MAX (e.g., 2 or 1-4)
   --config            Path to config file (default: sweep_config.yaml)
   --min-bytes         Override minimum message size (e.g., 1M, 256M)
   --max-bytes         Override maximum message size (e.g., 1G, 16G)
-  --dry-run, -d       Show commands without executing
+  --dry-run, -d       Show full commands without executing
   --verbose, -v       Verbose output
 ```
 
@@ -99,6 +106,15 @@ Options:
 ```bash
 # Only 2-node configuration
 ./rccl_sweep.py --nodes 2 -c 4:64:4
+```
+
+### Run on Node Range
+```bash
+# Run on 1 and 2 nodes
+./rccl_sweep.py --nodes 1-2 -c 4:64:4
+
+# Run on 2, 3, and 4 nodes
+./rccl_sweep.py --nodes 2-4 -c 4:64:4
 ```
 
 ### Custom Message Sizes
@@ -232,6 +248,7 @@ The tool sets these NCCL environment variables (from sweep_config.yaml):
 | File | Description |
 |------|-------------|
 | rccl_sweep.py | Main CLI entry point |
+| analyze_sweep.py | Results analysis tool |
 | sweep_config.yaml | Default configuration |
 | sweep_executor.py | Test execution engine |
 | sweep_parser.py | Output parsing |
