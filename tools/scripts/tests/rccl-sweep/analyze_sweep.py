@@ -99,10 +99,10 @@ Example:
         print("No data found!")
         return
     
-    # Find best for each combination
+    # Find best for each combination (collective, nodes, message size)
     best_results = {}
     for key, values in all_data.items():
-        # Find the entry with highest inplace_busbw
+        # Find the entry (num_channels, inplace_busbw) with highest inplace_busbw
         best = max(values, key=lambda x: x[1])
         best_results[key] = best
     
@@ -164,7 +164,7 @@ Example:
                 key = (collective, num_nodes, size)
                 if key in best_results:
                     ch, bw = best_results[key]
-                    row += f" {ch:>2}@{bw:>5.1f} |"
+                    row += f" {ch:>2}@{bw:>6.1f} |"
                 else:
                     row += f" {'N/A':>9} |"
             print(row)
