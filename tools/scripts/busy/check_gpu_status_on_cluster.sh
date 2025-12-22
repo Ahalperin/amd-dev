@@ -30,7 +30,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         "pids=\$(rocm-smi --showpids 2>/dev/null | grep -E '^[0-9]+' | grep -v 'gpuagent' | awk '{print \$1}')
          if [[ -n \"\$pids\" ]]; then
              first_pid=\$(echo \"\$pids\" | head -1)
-             proc_name=\$(ps -p \$first_pid -o comm= 2>/dev/null || echo 'unknown')
+             proc_name=\$(ps -p \$first_pid -o user=,comm= 2>/dev/null || echo 'unknown')
              echo \"GPUs-in-use|\$proc_name\"
          else
              echo 'GPUs-free|'
