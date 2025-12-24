@@ -1,34 +1,28 @@
 #!/usr/bin/env python3
 """
-Analyze RCCL sweep results to find optimal number of channels for each combination of:
+Analyze RCCL sweep results to find optimal configurations for each combination of:
 - Number of nodes
 - Collective type  
 - Message size
 
-Best results selected based on in-place busbw.
+Supports new database format with per-message-size metrics including algo/proto/nchannels.
 
 Usage:
     python analyze_sweep.py /path/to/sweep_results/run_YYYYMMDD_HHMMSS
 """
 
 import argparse
-import re
-import csv
+import sys
 from pathlib import Path
 from collections import defaultdict
 
-def parse_output_log(filepath):
-    """Parse output.log to extract message size and in-place busbw data."""
-    results = []
-    with open(filepath, 'r') as f:
-        for line in f:
-            # Match data lines: size count type redop root oop_time oop_algbw oop_busbw #wrong ip_time ip_algbw ip_busbw #wrong
-            match = re.match(r'\s*(\d+)\s+\d+\s+\w+\s+\w+\s+\S+\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+\d+\s+[\d.]+\s+[\d.]+\s+([\d.]+)\s+\d+', line)
-            if match:
-                size = int(match.group(1))
-                inplace_busbw = float(match.group(2))
-                results.append({'size': size, 'inplace_busbw': inplace_busbw})
-    return results
+# Try to import sweep_db module
+try:
+    from sweep_db import SweepDatabase
+    HAS_SWEEP_DB = True
+except ImportError:
+    HAS_SWEEP_DB = False
+
 
 def format_size(size_bytes):
     """Format byte size to human readable format."""
@@ -41,19 +35,84 @@ def format_size(size_bytes):
     else:
         return f"{size_bytes}B"
 
+
+def load_from_database(db_path):
+    """Load metrics from SQLite database."""
+    db = SweepDatabase(str(db_path))
+    
+    # Get all metrics
+    metrics = db.get_metrics()
+    db.close()
+    
+    # Convert to our format
+    data = []
+    for m in metrics:
+        data.append({
+            'collective': m['collective'],
+            'num_nodes': m['num_nodes'],
+            'num_gpus': m['num_gpus'],
+            'size': m['size_bytes'],
+            'algo': m.get('algo'),
+            'proto': m.get('proto'),
+            'nchannels': m.get('nchannels'),
+            'busbw_oop': m.get('busbw_oop'),
+            'busbw_ip': m.get('busbw_ip'),
+        })
+    
+    return data
+
+
+def load_from_metrics_csv(csv_path):
+    """Load metrics from metrics.csv file."""
+    import csv
+    
+    data = []
+    with open(csv_path, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            data.append({
+                'collective': row['collective'],
+                'num_nodes': int(row['num_nodes']),
+                'num_gpus': int(row['num_gpus']),
+                'size': int(row['size_bytes']),
+                'algo': row.get('algo'),
+                'proto': row.get('proto'),
+                'nchannels': int(row['nchannels']) if row.get('nchannels') else None,
+                'busbw_oop': float(row['busbw_oop']) if row.get('busbw_oop') else None,
+                'busbw_ip': float(row['busbw_ip']) if row.get('busbw_ip') else None,
+            })
+    
+    return data
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description='Analyze RCCL sweep results to find optimal number of channels.',
+        description='Analyze RCCL sweep results to find optimal configurations.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
-Example:
-    python analyze_sweep.py /path/to/sweep_results/run_20251221_063252
+Examples:
+    # Analyze sweep results (auto-detects database or CSV)
+    python analyze_sweep.py /path/to/sweep_results/run_20251224_111535
+    
+    # Show detailed per-size breakdown
+    python analyze_sweep.py /path/to/results --detailed
         '''
     )
     parser.add_argument(
         'results_dir',
         type=Path,
-        help='Path to the sweep results directory (contains outputs/ folder and summary.csv)'
+        help='Path to the sweep results directory'
+    )
+    parser.add_argument(
+        '--detailed', '-d',
+        action='store_true',
+        help='Show detailed per-size breakdown including algo/proto/nchannels'
+    )
+    parser.add_argument(
+        '--sort-by',
+        choices=['busbw_ip', 'busbw_oop', 'size'],
+        default='busbw_ip',
+        help='Sort results by (default: busbw_ip)'
     )
     args = parser.parse_args()
     
@@ -62,124 +121,168 @@ Example:
         print(f"Error: Directory not found: {results_dir}")
         return 1
     
-    outputs_dir = results_dir / 'outputs'
-    if not outputs_dir.exists():
-        print(f"Error: outputs/ directory not found in: {results_dir}")
+    # Try to load data from database first, then CSV
+    db_path = results_dir / 'sweep_results.db'
+    metrics_csv = results_dir / 'metrics.csv'
+    
+    data = []
+    source = None
+    
+    if db_path.exists() and HAS_SWEEP_DB:
+        try:
+            data = load_from_database(db_path)
+            source = f"database: {db_path.name}"
+        except Exception as e:
+            print(f"Warning: Could not read database: {e}")
+    
+    if not data and metrics_csv.exists():
+        try:
+            data = load_from_metrics_csv(metrics_csv)
+            source = f"CSV: {metrics_csv.name}"
+        except Exception as e:
+            print(f"Warning: Could not read metrics CSV: {e}")
+    
+    if not data:
+        print("Error: No data found! Need either sweep_results.db or metrics.csv")
         return 1
     
-    # Data structure: {(collective, num_nodes, message_size): [(num_channels, inplace_busbw), ...]}
-    all_data = defaultdict(list)
+    print(f"Loaded {len(data)} metrics from {source}")
+    print()
     
-    for subdir in outputs_dir.iterdir():
-        if not subdir.is_dir():
-            continue
-        
-        output_log = subdir / 'output.log'
-        if not output_log.exists():
-            continue
-        
-        # Parse directory name: {collective}_{num_nodes}node_{num_channels}ch
-        name = subdir.name
-        match = re.match(r'(.+)_(\d+)node_(\d+)ch', name)
-        if not match:
-            continue
-        
-        collective = match.group(1)
-        num_nodes = int(match.group(2))
-        num_channels = int(match.group(3))
-        
-        # Parse output log
-        results = parse_output_log(output_log)
-        
-        for r in results:
-            key = (collective, num_nodes, r['size'])
-            all_data[key].append((num_channels, r['inplace_busbw']))
+    # Organize data
+    collectives = sorted(set(d['collective'] for d in data))
+    nodes_list = sorted(set(d['num_nodes'] for d in data))
+    sizes = sorted(set(d['size'] for d in data))
     
-    if not all_data:
-        print("No data found!")
-        return
+    # Group data by (collective, num_nodes, size)
+    grouped = defaultdict(list)
+    for d in data:
+        key = (d['collective'], d['num_nodes'], d['size'])
+        grouped[key].append(d)
     
-    # Find best for each combination (collective, nodes, message size)
-    best_results = {}
-    for key, values in all_data.items():
-        # Find the entry (num_channels, inplace_busbw) with highest inplace_busbw
-        best = max(values, key=lambda x: x[1])
-        best_results[key] = best
-    
-    # Organize data for display
-    collectives = sorted(set(k[0] for k in best_results.keys()))
-    nodes_list = sorted(set(k[1] for k in best_results.keys()))
-    sizes = sorted(set(k[2] for k in best_results.keys()))
-    
-    print("=" * 120)
-    print("OPTIMAL NUMBER OF CHANNELS BY COLLECTIVE, NODES, AND MESSAGE SIZE")
-    print("(Selected based on best in-place busbw)")
-    print("=" * 120)
-    
-    for collective in collectives:
-        print(f"\n{'='*100}")
-        print(f"COLLECTIVE: {collective}")
-        print(f"{'='*100}")
+    if args.detailed:
+        # Detailed view: show algo/proto/nchannels for each size
+        print("=" * 120)
+        print("DETAILED PER-MESSAGE-SIZE METRICS")
+        print("=" * 120)
         
-        for num_nodes in nodes_list:
-            # Check if any data exists for this combo
-            has_data = any((collective, num_nodes, s) in best_results for s in sizes)
-            if not has_data:
-                continue
+        for collective in collectives:
+            print(f"\n{'='*100}")
+            print(f"COLLECTIVE: {collective}")
+            print(f"{'='*100}")
             
-            print(f"\n  Nodes: {num_nodes}")
-            print(f"  {'-'*80}")
-            print(f"  {'Message Size':>15} | {'Best Channels':>14} | {'In-Place BusBW (GB/s)':>22}")
-            print(f"  {'-'*80}")
+            for num_nodes in nodes_list:
+                # Check if any data exists
+                has_data = any((collective, num_nodes, s) in grouped for s in sizes)
+                if not has_data:
+                    continue
+                
+                print(f"\n  Nodes: {num_nodes}")
+                print(f"  {'-'*90}")
+                print(f"  {'Size':>10} | {'Algo':>8} | {'Proto':>8} | {'nCh':>5} | {'BusBW-OOP':>12} | {'BusBW-IP':>12}")
+                print(f"  {'-'*90}")
+                
+                for size in sizes:
+                    key = (collective, num_nodes, size)
+                    if key not in grouped:
+                        continue
+                    
+                    # Should be one entry per size (unless multiple runs)
+                    for entry in grouped[key]:
+                        algo = entry.get('algo') or 'auto'
+                        proto = entry.get('proto') or 'auto'
+                        nch = entry.get('nchannels') or 'auto'
+                        bw_oop = entry.get('busbw_oop') or 0
+                        bw_ip = entry.get('busbw_ip') or 0
+                        print(f"  {format_size(size):>10} | {algo:>8} | {proto:>8} | {nch:>5} | {bw_oop:>12.2f} | {bw_ip:>12.2f}")
+    
+    else:
+        # Summary view: find best configuration per (collective, nodes, size)
+        print("=" * 120)
+        print("SUMMARY: BEST CONFIGURATIONS BY COLLECTIVE, NODES, AND MESSAGE SIZE")
+        print("(Selected based on in-place busbw)")
+        print("=" * 120)
+        
+        best_results = {}
+        for key, entries in grouped.items():
+            # Find entry with best in-place busbw
+            best = max(entries, key=lambda x: x.get('busbw_ip') or 0)
+            best_results[key] = best
+        
+        for collective in collectives:
+            print(f"\n{'='*100}")
+            print(f"COLLECTIVE: {collective}")
+            print(f"{'='*100}")
             
-            for size in sizes:
-                key = (collective, num_nodes, size)
-                if key in best_results:
-                    num_channels, busbw = best_results[key]
-                    print(f"  {format_size(size):>15} | {num_channels:>14} | {busbw:>22.2f}")
+            for num_nodes in nodes_list:
+                has_data = any((collective, num_nodes, s) in best_results for s in sizes)
+                if not has_data:
+                    continue
+                
+                print(f"\n  Nodes: {num_nodes}")
+                print(f"  {'-'*90}")
+                print(f"  {'Size':>10} | {'Algo':>8} | {'Proto':>8} | {'nCh':>5} | {'BusBW-IP (GB/s)':>16}")
+                print(f"  {'-'*90}")
+                
+                for size in sizes:
+                    key = (collective, num_nodes, size)
+                    if key in best_results:
+                        entry = best_results[key]
+                        algo = entry.get('algo') or 'auto'
+                        proto = entry.get('proto') or 'auto'
+                        nch = entry.get('nchannels') or 'auto'
+                        bw_ip = entry.get('busbw_ip') or 0
+                        print(f"  {format_size(size):>10} | {algo:>8} | {proto:>8} | {nch:>5} | {bw_ip:>16.2f}")
+        
+        # Compact summary table
+        print("\n\n")
+        print("=" * 140)
+        print("COMPACT SUMMARY: nChannels @ BusBW-IP (GB/s)")
+        print("=" * 140)
+        
+        # Build header with sizes
+        size_strs = [format_size(s) for s in sizes[:10]]  # Limit to 10 sizes for readability
+        header = f"{'Collective':<22} | {'N':>3} |"
+        for s in size_strs:
+            header += f" {s:>10} |"
+        print(header)
+        print("-" * len(header))
+        
+        for collective in collectives:
+            for num_nodes in nodes_list:
+                has_data = any((collective, num_nodes, s) in best_results for s in sizes)
+                if not has_data:
+                    continue
+                
+                row = f"{collective:<22} | {num_nodes:>3} |"
+                for size in sizes[:10]:
+                    key = (collective, num_nodes, size)
+                    if key in best_results:
+                        entry = best_results[key]
+                        nch = entry.get('nchannels') or 0
+                        bw = entry.get('busbw_ip') or 0
+                        row += f" {nch:>3}@{bw:>5.0f} |"
+                    else:
+                        row += f" {'N/A':>10} |"
+                print(row)
     
-    # Create compact summary table
-    print("\n\n")
-    print("=" * 140)
-    print("SUMMARY TABLE: Best Channels (format: ch@busbw)")
-    print("=" * 140)
-    
-    # Build header
-    size_strs = [format_size(s) for s in sizes]
-    header = f"{'Collective':<22} | {'Nodes':>5} |"
-    for s in size_strs:
-        header += f" {s:>9} |"
-    print(header)
-    print("-" * len(header))
-    
-    for collective in collectives:
-        for num_nodes in nodes_list:
-            # Check if data exists
-            has_data = any((collective, num_nodes, s) in best_results for s in sizes)
-            if not has_data:
-                continue
-            
-            row = f"{collective:<22} | {num_nodes:>5} |"
-            for size in sizes:
-                key = (collective, num_nodes, size)
-                if key in best_results:
-                    ch, bw = best_results[key]
-                    row += f" {ch:>2}@{bw:>6.1f} |"
-                else:
-                    row += f" {'N/A':>9} |"
-            print(row)
-    
-    # Export to CSV
-    output_csv = results_dir / 'best_channels_analysis.csv'
+    # Export enhanced analysis
+    import csv
+    output_csv = results_dir / 'analysis.csv'
     with open(output_csv, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['collective', 'num_nodes', 'message_size', 'message_size_human', 'best_num_channels', 'inplace_busbw'])
-        for key in sorted(best_results.keys()):
-            collective, num_nodes, size = key
-            num_channels, busbw = best_results[key]
-            writer.writerow([collective, num_nodes, size, format_size(size), num_channels, busbw])
+        writer.writerow(['collective', 'num_nodes', 'num_gpus', 'size_bytes', 'size_human', 
+                        'algo', 'proto', 'nchannels', 'busbw_oop', 'busbw_ip'])
+        for d in sorted(data, key=lambda x: (x['collective'], x['num_nodes'], x['size'])):
+            writer.writerow([
+                d['collective'], d['num_nodes'], d['num_gpus'],
+                d['size'], format_size(d['size']),
+                d.get('algo'), d.get('proto'), d.get('nchannels'),
+                d.get('busbw_oop'), d.get('busbw_ip')
+            ])
     
-    print(f"\n\nDetailed results saved to: {output_csv}")
+    print(f"\n\nAnalysis saved to: {output_csv}")
+
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main() or 0)

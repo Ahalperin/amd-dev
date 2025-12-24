@@ -7,6 +7,7 @@ Extracts bandwidth metrics for each message size from rccl-tests output.
 import re
 import json
 from typing import Dict, List, Optional, Any
+from collections import Counter
 
 
 class RCCLOutputParser:
@@ -49,6 +50,9 @@ class RCCLOutputParser:
             'metrics': [],
             'avg_busbw': None,
             'max_busbw': None,
+            'detected_algo': None,      # Most common algo from output
+            'detected_proto': None,     # Most common proto from output
+            'detected_nchannels': None, # nchannels from output (typically constant)
             'error_message': None
         }
         
@@ -141,12 +145,34 @@ class RCCLOutputParser:
                             'busbw_ip': float(parts[11]),
                             'errors_ip': int(parts[12]),
                         }
+                        # Parse extended columns if present (algo, proto, nchannels)
+                        if len(parts) >= 16:
+                            metric['algo'] = parts[13]
+                            metric['proto'] = parts[14]
+                            metric['nchannels'] = int(parts[15])
                         metrics.append(metric)
                 except (ValueError, IndexError):
                     # Skip lines that don't match expected format
                     continue
         
         result['metrics'] = metrics
+        
+        # Extract detected algo/proto/nchannels from metrics
+        if metrics:
+            # Get nchannels (should be constant across all rows)
+            nchannels_values = [m.get('nchannels') for m in metrics if m.get('nchannels') is not None]
+            if nchannels_values:
+                result['detected_nchannels'] = nchannels_values[0]  # Use first value (should all be same)
+            
+            # Get most common algo (may vary by message size, e.g., Direct vs RING)
+            algo_values = [m.get('algo') for m in metrics if m.get('algo') is not None]
+            if algo_values:
+                result['detected_algo'] = Counter(algo_values).most_common(1)[0][0]
+            
+            # Get most common proto
+            proto_values = [m.get('proto') for m in metrics if m.get('proto') is not None]
+            if proto_values:
+                result['detected_proto'] = Counter(proto_values).most_common(1)[0][0]
         
         if metrics:
             result['success'] = True
@@ -220,7 +246,7 @@ def parse_rccl_output(stdout: str, stderr: str = "") -> Dict[str, Any]:
 
 
 if __name__ == '__main__':
-    # Test with sample output
+    # Test with sample output (new format with algo/proto/nchannels)
     sample_output = """# Collective test starting: all_reduce_perf
 # nThread 1 nGpus 1 minBytes 1048576 maxBytes 17179869184 step: 2(factor) warmup iters: 5 iters: 20 agg iters: 1 validation: 1 graph: 0
 #
@@ -233,11 +259,11 @@ HIP version  : 7.0.51831-a3e329ad8
 ROCm version : 7.0.1.0-42-9428210
 #
 #                                                              out-of-place                       in-place          
-#       size         count      type   redop    root     time   algbw   busbw #wrong     time   algbw   busbw #wrong                               
+#       size         count      type   redop    root     time   algbw   busbw #wrong     time   algbw   busbw #wrong     algo     proto   nchannels
 #        (B)    (elements)                               (us)  (GB/s)  (GB/s)            (us)  (GB/s)  (GB/s)                                      
-     1048576        262144     float     sum      -1    76.26   13.75   25.78      0    76.43   13.72   25.72      0
-     2097152        524288     float     sum      -1    87.02   24.10   45.18      0    86.52   24.24   45.45      0
-   268435456      67108864     float     sum      -1   1377.7  194.84  365.33      0   1376.1  195.07  365.76      0
+     1048576        262144     float     sum      -1    76.26   13.75   25.78      0    76.43   13.72   25.72      0  Direct    SIMPLE          32
+     2097152        524288     float     sum      -1    87.02   24.10   45.18      0    86.52   24.24   45.45      0    RING    SIMPLE          32
+   268435456      67108864     float     sum      -1   1377.7  194.84  365.33      0   1376.1  195.07  365.76      0    RING    SIMPLE          32
 # Out of bounds values : 0 OK
 # Avg bus bandwidth    : 249.115 
 #
@@ -251,7 +277,11 @@ ROCm version : 7.0.1.0-42-9428210
     print(f"Num Ranks: {result['num_ranks']}")
     print(f"Avg Bus BW: {result['avg_busbw']} GB/s")
     print(f"Max Bus BW: {result['max_busbw']} GB/s")
+    print(f"Detected Algo: {result['detected_algo']}")
+    print(f"Detected Proto: {result['detected_proto']}")
+    print(f"Detected nChannels: {result['detected_nchannels']}")
     print(f"Metrics count: {len(result['metrics'])}")
     for m in result['metrics']:
-        print(f"  {RCCLOutputParser.format_size(m['size_bytes'])}: {m['busbw_oop']:.2f} GB/s")
+        algo_info = f" [{m.get('algo', 'N/A')}/{m.get('proto', 'N/A')}/{m.get('nchannels', 'N/A')}ch]" if 'algo' in m else ""
+        print(f"  {RCCLOutputParser.format_size(m['size_bytes'])}: {m['busbw_oop']:.2f} GB/s{algo_info}")
 

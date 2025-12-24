@@ -88,16 +88,20 @@ class SweepExecutor:
                             collective: str,
                             host_string: str,
                             num_gpus: int,
-                            num_channels: int,
-                            test_params: Optional[Dict] = None) -> Tuple[List[str], Dict[str, str]]:
+                            num_channels: Optional[int] = None,
+                            test_params: Optional[Dict] = None,
+                            algo: Optional[str] = None,
+                            proto: Optional[str] = None) -> Tuple[List[str], Dict[str, str]]:
         """Build the mpirun command with all environment variables.
         
         Args:
             collective: Collective operation name (e.g., 'all_reduce_perf')
             host_string: MPI host specification
             num_gpus: Total number of GPUs (processes)
-            num_channels: Number of channels to use
+            num_channels: Number of channels to use, or None for NCCL default
             test_params: Optional override for test parameters
+            algo: NCCL algorithm (Ring, Tree) or None for default
+            proto: NCCL protocol (LL, LL128, SIMPLE) or None for default
             
         Returns:
             Tuple of (command list, environment dict)
@@ -111,9 +115,18 @@ class SweepExecutor:
         if test_params:
             test_defaults = {**test_defaults, **test_params}
         
-        # Set channel counts
-        env_vars['NCCL_MIN_NCHANNELS'] = str(num_channels)
-        env_vars['NCCL_MAX_NCHANNELS'] = str(num_channels)
+        # Set channel counts only if specified
+        if num_channels is not None:
+            env_vars['NCCL_MIN_NCHANNELS'] = str(num_channels)
+            env_vars['NCCL_MAX_NCHANNELS'] = str(num_channels)
+        
+        # Set algorithm if specified
+        if algo is not None:
+            env_vars['NCCL_ALGO'] = algo
+        
+        # Set protocol if specified
+        if proto is not None:
+            env_vars['NCCL_PROTO'] = proto
         
         # Get and expand the single rccl_path (contains both libs and executables)
         rccl_path = self.expand_path(paths.get('rccl_path', ''))
@@ -161,6 +174,7 @@ class SweepExecutor:
         cmd.extend(['-n', str(test_defaults.get('iterations', 20))])
         cmd.extend(['-w', str(test_defaults.get('warmup_iters', 5))])
         cmd.extend(['-c', str(test_defaults.get('check_iters', 1))])
+        cmd.extend(['-M', str(test_defaults.get('show_algo_proto_channels', 1))])
         
         if test_defaults.get('report_cputime'):
             cmd.extend(['-R', str(test_defaults.get('report_cputime', 1))])
@@ -171,9 +185,11 @@ class SweepExecutor:
                     collective: str,
                     num_nodes: int,
                     num_gpus: int,
-                    num_channels: int,
-                    host_string: str,
+                    num_channels: Optional[int] = None,
+                    host_string: str = "",
                     test_params: Optional[Dict] = None,
+                    algo: Optional[str] = None,
+                    proto: Optional[str] = None,
                     dry_run: bool = False) -> Dict[str, Any]:
         """Execute a single RCCL test.
         
@@ -181,9 +197,11 @@ class SweepExecutor:
             collective: Collective operation name
             num_nodes: Number of nodes used
             num_gpus: Total number of GPUs
-            num_channels: Number of channels
+            num_channels: Number of channels, or None for NCCL default
             host_string: MPI host specification
             test_params: Optional test parameter overrides
+            algo: NCCL algorithm (Ring, Tree) or None for default
+            proto: NCCL protocol (LL, LL128, SIMPLE) or None for default
             dry_run: If True, just return the command without executing
             
         Returns:
@@ -197,13 +215,21 @@ class SweepExecutor:
             host_string=host_string,
             num_gpus=num_gpus,
             num_channels=num_channels,
-            test_params=test_params
+            test_params=test_params,
+            algo=algo,
+            proto=proto
         )
         
         cmd_str = ' '.join(shlex.quote(c) if ' ' in c else c for c in cmd)
         
-        # Create output directory for this run
-        run_name = f"{collective}_{num_nodes}node_{num_channels}ch"
+        # Create output directory for this run (include channels/algo/proto in name if set)
+        run_name = f"{collective}_{num_nodes}node"
+        if num_channels:
+            run_name += f"_{num_channels}ch"
+        if algo:
+            run_name += f"_{algo}"
+        if proto:
+            run_name += f"_{proto}"
         run_dir = self.output_dir / run_name
         run_dir.mkdir(exist_ok=True)
         
@@ -232,8 +258,11 @@ class SweepExecutor:
             return result
         
         if self.verbose:
+            ch_str = f" | {num_channels} channels" if num_channels else ""
+            algo_str = f" | algo={algo}" if algo else ""
+            proto_str = f" | proto={proto}" if proto else ""
             print(f"\n{'─'*60}")
-            print(f"Running: {collective} | {num_nodes} node(s) | {num_channels} channels")
+            print(f"Running: {collective} | {num_nodes} node(s){ch_str}{algo_str}{proto_str}")
             print(f"{'─'*60}")
         
         # Execute command

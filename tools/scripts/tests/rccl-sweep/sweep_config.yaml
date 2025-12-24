@@ -15,10 +15,11 @@ test_defaults:
   max_bytes: "16G"          # -e parameter
   step_factor: 2            # -f parameter
   gpus_per_rank: 1          # -g parameter
-  iterations: 20            # -n parameter
+  iterations: 5             # -n parameter
   warmup_iters: 5           # -w parameter
   check_iters: 1            # -c parameter
   report_cputime: 1         # -R parameter (report CPU time)
+  show_algo_proto_channels: 1 # -M parameter (show algorithm, protocol, and channels)
   timeout: 600              # seconds per test
 
 # Node Configuration

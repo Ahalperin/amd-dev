@@ -61,6 +61,8 @@ class SweepDatabase:
                 num_nodes INTEGER NOT NULL,
                 num_gpus INTEGER NOT NULL,
                 num_channels INTEGER NOT NULL,
+                algo TEXT,
+                proto TEXT,
                 
                 -- Command info
                 command TEXT NOT NULL,
@@ -101,6 +103,56 @@ class SweepDatabase:
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_num_channels 
             ON sweep_runs(num_channels)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_algo 
+            ON sweep_runs(algo)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_proto 
+            ON sweep_runs(proto)
+        """)
+        
+        # Per-message-size metrics table (granular data)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sweep_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL,
+                
+                -- Message details
+                size_bytes INTEGER NOT NULL,
+                count INTEGER NOT NULL,
+                data_type TEXT NOT NULL,
+                redop TEXT,
+                
+                -- Out-of-place metrics
+                time_oop_us REAL,
+                algbw_oop REAL,
+                busbw_oop REAL,
+                errors_oop INTEGER,
+                
+                -- In-place metrics
+                time_ip_us REAL,
+                algbw_ip REAL,
+                busbw_ip REAL,
+                errors_ip INTEGER,
+                
+                -- Algorithm/protocol/channels used for this size
+                algo TEXT,
+                proto TEXT,
+                nchannels INTEGER,
+                
+                FOREIGN KEY (run_id) REFERENCES sweep_runs(id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_metrics_run_id 
+            ON sweep_metrics(run_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_metrics_size 
+            ON sweep_metrics(size_bytes)
         """)
         
         self.conn.commit()
@@ -198,10 +250,11 @@ class SweepDatabase:
         cursor.execute("""
             INSERT INTO sweep_runs (
                 session_id, timestamp, collective, num_nodes, num_gpus, num_channels,
+                algo, proto,
                 command, results_json, avg_busbw, max_busbw,
                 rccl_version, hip_version, rocm_version,
                 status, duration_sec, error_message, output_path
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             run_data.get('session_id'),
             run_data.get('timestamp', datetime.now().isoformat()),
@@ -209,6 +262,8 @@ class SweepDatabase:
             run_data.get('num_nodes'),
             run_data.get('num_gpus'),
             run_data.get('num_channels'),
+            run_data.get('algo'),
+            run_data.get('proto'),
             run_data.get('command'),
             run_data.get('results_json'),
             run_data.get('avg_busbw'),
@@ -224,6 +279,48 @@ class SweepDatabase:
         
         self.conn.commit()
         return cursor.lastrowid
+    
+    def insert_metrics(self, run_id: int, metrics: List[Dict[str, Any]]) -> int:
+        """Insert per-message-size metrics for a run.
+        
+        Args:
+            run_id: ID of the parent run
+            metrics: List of metric dictionaries from parser
+            
+        Returns:
+            Number of metrics inserted
+        """
+        cursor = self.conn.cursor()
+        
+        for m in metrics:
+            cursor.execute("""
+                INSERT INTO sweep_metrics (
+                    run_id, size_bytes, count, data_type, redop,
+                    time_oop_us, algbw_oop, busbw_oop, errors_oop,
+                    time_ip_us, algbw_ip, busbw_ip, errors_ip,
+                    algo, proto, nchannels
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                run_id,
+                m.get('size_bytes'),
+                m.get('count'),
+                m.get('type'),
+                m.get('redop'),
+                m.get('time_oop_us'),
+                m.get('algbw_oop'),
+                m.get('busbw_oop'),
+                m.get('errors_oop'),
+                m.get('time_ip_us'),
+                m.get('algbw_ip'),
+                m.get('busbw_ip'),
+                m.get('errors_ip'),
+                m.get('algo'),
+                m.get('proto'),
+                m.get('nchannels')
+            ))
+        
+        self.conn.commit()
+        return len(metrics)
     
     def get_runs(self, session_id: Optional[int] = None, 
                  collective: Optional[str] = None,
@@ -357,6 +454,8 @@ class SweepDatabase:
                 'num_nodes': run['num_nodes'],
                 'num_gpus': run['num_gpus'],
                 'num_channels': run['num_channels'],
+                'algo': run.get('algo'),
+                'proto': run.get('proto'),
                 'avg_busbw': run['avg_busbw'],
                 'max_busbw': run['max_busbw'],
                 'status': run['status'],
@@ -368,6 +467,88 @@ class SweepDatabase:
         df = pd.DataFrame(rows)
         df.to_csv(output_path, index=False)
         print(f"Exported {len(rows)} runs to {output_path}")
+    
+    def get_metrics(self, run_id: Optional[int] = None, 
+                    session_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get per-message-size metrics with optional filtering.
+        
+        Args:
+            run_id: Filter by specific run
+            session_id: Filter by session (gets metrics for all runs in session)
+            
+        Returns:
+            List of metric dictionaries with run info
+        """
+        cursor = self.conn.cursor()
+        
+        query = """
+            SELECT 
+                m.*,
+                r.collective,
+                r.num_nodes,
+                r.num_gpus,
+                r.timestamp
+            FROM sweep_metrics m
+            JOIN sweep_runs r ON m.run_id = r.id
+            WHERE 1=1
+        """
+        params = []
+        
+        if run_id is not None:
+            query += " AND m.run_id = ?"
+            params.append(run_id)
+        if session_id is not None:
+            query += " AND r.session_id = ?"
+            params.append(session_id)
+        
+        query += " ORDER BY r.id, m.size_bytes"
+        
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def export_metrics_to_csv(self, output_path: str, session_id: Optional[int] = None):
+        """Export detailed per-message-size metrics to CSV file.
+        
+        Args:
+            output_path: Path to output CSV file
+            session_id: Optional session ID to filter
+        """
+        import pandas as pd
+        
+        metrics = self.get_metrics(session_id=session_id)
+        
+        if not metrics:
+            print("No metrics to export")
+            return
+        
+        # Flatten for CSV
+        rows = []
+        for m in metrics:
+            row = {
+                'collective': m['collective'],
+                'num_nodes': m['num_nodes'],
+                'num_gpus': m['num_gpus'],
+                'size_bytes': m['size_bytes'],
+                'count': m['count'],
+                'data_type': m['data_type'],
+                'redop': m['redop'],
+                'time_oop_us': m['time_oop_us'],
+                'algbw_oop': m['algbw_oop'],
+                'busbw_oop': m['busbw_oop'],
+                'errors_oop': m['errors_oop'],
+                'time_ip_us': m['time_ip_us'],
+                'algbw_ip': m['algbw_ip'],
+                'busbw_ip': m['busbw_ip'],
+                'errors_ip': m['errors_ip'],
+                'algo': m['algo'],
+                'proto': m['proto'],
+                'nchannels': m['nchannels'],
+            }
+            rows.append(row)
+        
+        df = pd.DataFrame(rows)
+        df.to_csv(output_path, index=False)
+        print(f"Exported {len(rows)} metrics to {output_path}")
     
     def close(self):
         """Close database connection."""

@@ -111,6 +111,79 @@ def parse_channels(channels_str: str) -> List[int]:
     return list(range(min_ch, max_ch + 1, step))
 
 
+# Algorithm and protocol mappings
+ALGO_MAP = {
+    'RING': 'Ring',
+    'TREE': 'Tree',
+}
+
+PROTO_MAP = {
+    'LL': 'LL',
+    'LL128': 'LL128',
+    'SIMPLE': 'SIMPLE',
+}
+
+
+def parse_algo(algo_str: Optional[str]) -> List[Optional[str]]:
+    """Parse algorithm specification.
+    
+    Args:
+        algo_str: 'all', 'RING', 'TREE', or None
+        
+    Returns:
+        List of algorithm values (None means use NCCL default)
+    """
+    if algo_str is None:
+        return [None]
+    if algo_str == 'all':
+        return list(ALGO_MAP.keys())
+    return [algo_str]
+
+
+def parse_proto(proto_str: Optional[str]) -> List[Optional[str]]:
+    """Parse protocol specification.
+    
+    Args:
+        proto_str: 'all', 'LL', 'LL128', 'SIMPLE', or None
+        
+    Returns:
+        List of protocol values (None means use NCCL default)
+    """
+    if proto_str is None:
+        return [None]
+    if proto_str == 'all':
+        return list(PROTO_MAP.keys())
+    return [proto_str]
+
+
+def get_algo_env_value(algo: Optional[str]) -> Optional[str]:
+    """Get NCCL_ALGO environment variable value.
+    
+    Args:
+        algo: Algorithm name (RING, TREE) or None
+        
+    Returns:
+        Value for NCCL_ALGO or None if not set
+    """
+    if algo is None:
+        return None
+    return ALGO_MAP.get(algo)
+
+
+def get_proto_env_value(proto: Optional[str]) -> Optional[str]:
+    """Get NCCL_PROTO environment variable value.
+    
+    Args:
+        proto: Protocol name (LL, LL128, SIMPLE) or None
+        
+    Returns:
+        Value for NCCL_PROTO or None if not set
+    """
+    if proto is None:
+        return None
+    return PROTO_MAP.get(proto)
+
+
 def load_config(config_path: str) -> Dict[str, Any]:
     """Load configuration from YAML file.
     
@@ -133,15 +206,34 @@ def print_header():
 
 def print_sweep_plan(collectives: List[str], 
                      num_nodes_list: List[int],
-                     channels: List[int],
-                     gpus_per_node: int):
+                     channels: List[Optional[int]],
+                     gpus_per_node: int,
+                     algos: List[Optional[str]],
+                     protos: List[Optional[str]]):
     """Print the planned test matrix."""
-    total_tests = len(collectives) * len(num_nodes_list) * len(channels)
+    total_tests = len(collectives) * len(num_nodes_list) * len(channels) * len(algos) * len(protos)
     
     print(f"{Fore.GREEN}Sweep Configuration:{Style.RESET_ALL}")
     print(f"  Collectives: {', '.join(c.replace('_perf', '') for c in collectives)}")
     print(f"  Node counts: {', '.join(str(n) for n in num_nodes_list)} ({gpus_per_node} GPUs/node)")
-    print(f"  Channels: {min(channels)}-{max(channels)} (step {channels[1]-channels[0] if len(channels)>1 else 'N/A'})")
+    
+    # Display channels configuration
+    if channels == [None]:
+        print(f"  Channels: default (NCCL auto)")
+    else:
+        print(f"  Channels: {min(channels)}-{max(channels)} (step {channels[1]-channels[0] if len(channels)>1 else 'N/A'})")
+    
+    # Display algo/proto configuration
+    if algos == [None]:
+        print(f"  Algorithms: default (NCCL auto)")
+    else:
+        print(f"  Algorithms: {', '.join(algos)}")
+    
+    if protos == [None]:
+        print(f"  Protocols: default (NCCL auto)")
+    else:
+        print(f"  Protocols: {', '.join(protos)}")
+    
     print(f"  Total tests: {Fore.YELLOW}{total_tests}{Style.RESET_ALL}")
     
     # Estimate duration
@@ -199,11 +291,18 @@ def run_sweep(args, config: Dict[str, Any]):
         # Use all available nodes (1 to N)
         num_nodes_list = list(range(1, max_available + 1))
     
-    # Parse channels
-    channels = parse_channels(args.channels)
+    # Parse channels (optional - use [None] if not provided to use NCCL defaults)
+    if args.channels:
+        channels = parse_channels(args.channels)
+    else:
+        channels = [None]
+    
+    # Parse algorithm and protocol options
+    algos = parse_algo(getattr(args, 'algo', None))
+    protos = parse_proto(getattr(args, 'proto', None))
     
     # Print plan
-    print_sweep_plan(collectives, num_nodes_list, channels, gpus_per_node)
+    print_sweep_plan(collectives, num_nodes_list, channels, gpus_per_node, algos, protos)
     
     # Dry run mode
     if args.dry_run:
@@ -215,18 +314,28 @@ def run_sweep(args, config: Dict[str, Any]):
                 host_string = executor.build_host_string(servers, num_nodes, gpus_per_node)
                 
                 for num_channels in channels:
-                    cmd, _ = executor.build_mpirun_command(
-                        collective=collective,
-                        host_string=host_string,
-                        num_gpus=num_gpus,
-                        num_channels=num_channels
-                    )
-                    
-                    print(f"{Fore.CYAN}[{collective}] {num_nodes} node(s), {num_channels} channels:{Style.RESET_ALL}")
-                    print(f"  {' '.join(cmd)}")
-                    print()
+                    for algo in algos:
+                        for proto in protos:
+                            cmd, _ = executor.build_mpirun_command(
+                                collective=collective,
+                                host_string=host_string,
+                                num_gpus=num_gpus,
+                                num_channels=num_channels,
+                                algo=get_algo_env_value(algo),
+                                proto=get_proto_env_value(proto)
+                            )
+                            
+                            # Build display string for channels/algo/proto
+                            ch_str = f", {num_channels} ch" if num_channels else ""
+                            algo_str = f", algo={algo}" if algo else ""
+                            proto_str = f", proto={proto}" if proto else ""
+                            
+                            print(f"{Fore.CYAN}[{collective}] {num_nodes} node(s){ch_str}{algo_str}{proto_str}:{Style.RESET_ALL}")
+                            print(f"  {' '.join(cmd)}")
+                            print()
         
-        print(f"Total: {len(collectives) * len(num_nodes_list) * len(channels)} tests would be executed")
+        total = len(collectives) * len(num_nodes_list) * len(channels) * len(algos) * len(protos)
+        print(f"Total: {total} tests would be executed")
         return
     
     # Set up output directory
@@ -242,13 +351,15 @@ def run_sweep(args, config: Dict[str, Any]):
     db = SweepDatabase(str(db_path))
     
     # Calculate total tests
-    total_tests = len(collectives) * len(num_nodes_list) * len(channels)
+    total_tests = len(collectives) * len(num_nodes_list) * len(channels) * len(algos) * len(protos)
     
     # Create session
     session_config = {
         'collectives': collectives,
         'num_nodes_list': num_nodes_list,
         'channels': channels,
+        'algos': algos,
+        'protos': protos,
         'servers': servers[:max(num_nodes_list)],
         'config': config
     }
@@ -271,65 +382,88 @@ def run_sweep(args, config: Dict[str, Any]):
                 host_string = executor.build_host_string(servers, num_nodes, gpus_per_node)
                 
                 for num_channels in channels:
-                    completed += 1
-                    
-                    # Progress header
-                    progress = f"[{completed}/{total_tests}]"
-                    elapsed = time.time() - start_time
-                    if completed > 1:
-                        avg_time = elapsed / (completed - 1)
-                        remaining = avg_time * (total_tests - completed + 1)
-                        eta = f"ETA: {format_duration(remaining)}"
-                    else:
-                        eta = ""
-                    
-                    print(f"\n{Fore.CYAN}{progress} {collective} | {num_nodes} node(s) | {num_channels} ch {eta}{Style.RESET_ALL}")
-                    
-                    # Execute test
-                    result = executor.execute_test(
-                        collective=collective,
-                        num_nodes=num_nodes,
-                        num_gpus=num_gpus,
-                        num_channels=num_channels,
-                        host_string=host_string,
-                        dry_run=False
-                    )
-                    
-                    # Parse output
-                    parsed = parse_rccl_output(result['stdout'], result['stderr'])
-                    
-                    # Prepare database entry
-                    db_entry = {
-                        'session_id': session_id,
-                        'timestamp': result['timestamp'],
-                        'collective': collective,
-                        'num_nodes': num_nodes,
-                        'num_gpus': num_gpus,
-                        'num_channels': num_channels,
-                        'command': result['command'],
-                        'status': result['status'],
-                        'duration_sec': result['duration_sec'],
-                        'output_path': result['output_path'],
-                    }
-                    
-                    if parsed['success']:
-                        db_entry.update({
-                            'results_json': RCCLOutputParser.metrics_to_json(parsed['metrics']),
-                            'avg_busbw': parsed['avg_busbw'],
-                            'max_busbw': parsed['max_busbw'],
-                            'rccl_version': parsed['rccl_version'],
-                            'hip_version': parsed['hip_version'],
-                            'rocm_version': parsed['rocm_version'],
-                        })
-                        
-                        print(f"  Avg BW: {Fore.GREEN}{parsed['avg_busbw']:.2f} GB/s{Style.RESET_ALL}, "
-                              f"Max: {parsed['max_busbw']:.2f} GB/s")
-                    else:
-                        db_entry['error_message'] = parsed.get('error_message', result.get('stderr', ''))[:500]
-                        failed += 1
-                    
-                    # Save to database
-                    db.insert_run(db_entry)
+                    for algo in algos:
+                        for proto in protos:
+                            completed += 1
+                            
+                            # Progress header
+                            progress = f"[{completed}/{total_tests}]"
+                            elapsed = time.time() - start_time
+                            if completed > 1:
+                                avg_time = elapsed / (completed - 1)
+                                remaining = avg_time * (total_tests - completed + 1)
+                                eta = f"ETA: {format_duration(remaining)}"
+                            else:
+                                eta = ""
+                            
+                            # Build display string for channels/algo/proto
+                            ch_str = f" | {num_channels} ch" if num_channels else ""
+                            algo_str = f" | {algo}" if algo else ""
+                            proto_str = f" | {proto}" if proto else ""
+                            
+                            print(f"\n{Fore.CYAN}{progress} {collective} | {num_nodes} node(s){ch_str}{algo_str}{proto_str} {eta}{Style.RESET_ALL}")
+                            
+                            # Get env var values for algo/proto
+                            algo_env = get_algo_env_value(algo)
+                            proto_env = get_proto_env_value(proto)
+                            
+                            # Execute test
+                            result = executor.execute_test(
+                                collective=collective,
+                                num_nodes=num_nodes,
+                                num_gpus=num_gpus,
+                                num_channels=num_channels,
+                                host_string=host_string,
+                                algo=algo_env,
+                                proto=proto_env,
+                                dry_run=False
+                            )
+                            
+                            # Parse output
+                            parsed = parse_rccl_output(result['stdout'], result['stderr'])
+                            
+                            # Use detected nchannels from output (ground truth), fall back to requested if not available
+                            # -1 indicates no valid channels value was detected (invalid/error condition)
+                            actual_nchannels = parsed.get('detected_nchannels') or num_channels or -1
+                            
+                            # Prepare database entry
+                            db_entry = {
+                                'session_id': session_id,
+                                'timestamp': result['timestamp'],
+                                'collective': collective,
+                                'num_nodes': num_nodes,
+                                'num_gpus': num_gpus,
+                                'num_channels': actual_nchannels,
+                                'algo': algo,
+                                'proto': proto,
+                                'command': result['command'],
+                                'status': result['status'],
+                                'duration_sec': result['duration_sec'],
+                                'output_path': result['output_path'],
+                            }
+                            
+                            if parsed['success']:
+                                db_entry.update({
+                                    'results_json': RCCLOutputParser.metrics_to_json(parsed['metrics']),
+                                    'avg_busbw': parsed['avg_busbw'],
+                                    'max_busbw': parsed['max_busbw'],
+                                    'rccl_version': parsed['rccl_version'],
+                                    'hip_version': parsed['hip_version'],
+                                    'rocm_version': parsed['rocm_version'],
+                                })
+                                
+                                print(f"  Avg BW: {Fore.GREEN}{parsed['avg_busbw']:.2f} GB/s{Style.RESET_ALL}, "
+                                      f"Max: {parsed['max_busbw']:.2f} GB/s, nCh: {actual_nchannels}")
+                            else:
+                                db_entry['error_message'] = parsed.get('error_message', result.get('stderr', ''))[:500]
+                                failed += 1
+                            
+                            # Save to database
+                            run_id = db.insert_run(db_entry)
+                            
+                            # Insert per-message-size metrics (granular data)
+                            if parsed['success'] and parsed.get('metrics'):
+                                db.insert_metrics(run_id, parsed['metrics'])
         
         # Complete session
         db.complete_session(session_id)
@@ -360,6 +494,11 @@ def run_sweep(args, config: Dict[str, Any]):
         db.export_to_csv(str(csv_path), session_id)
         print(f"  CSV export: {csv_path}")
         
+        # Export detailed per-size metrics
+        metrics_csv_path = output_dir / 'metrics.csv'
+        db.export_metrics_to_csv(str(metrics_csv_path), session_id)
+        print(f"  Metrics CSV: {metrics_csv_path}")
+        
         db.close()
 
 
@@ -370,8 +509,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Run with NCCL default channels (no channel sweep)
+  %(prog)s --algo RING --proto LL128
+
   # Run all collectives, all nodes, channel sweep 4-64 step 4
-  # (uses ./servers.txt by default)
   %(prog)s --channels 4:64:4
 
   # Run single collective
@@ -382,6 +523,15 @@ Examples:
 
   # Run on node range (1 to 4 nodes)
   %(prog)s --nodes 1-4 --channels 4:64:4
+
+  # Sweep all algorithms with default protocol
+  %(prog)s --channels 4:64:4 --algo all
+
+  # Use specific algorithm and protocol
+  %(prog)s --channels 4:64:4 --algo RING --proto LL128
+
+  # Full sweep: all algos x all protos
+  %(prog)s --channels 4:64:4 --algo all --proto all
 
   # Custom message sizes (default: 1M to 16G)
   %(prog)s --channels 4:64:4 --min-bytes 256M --max-bytes 1G
@@ -402,8 +552,7 @@ Examples:
     
     parser.add_argument(
         '--channels', '-c',
-        required=True,
-        help='Channel range as MIN:MAX:STEP (e.g., 4:64:4)'
+        help='Channel range as MIN:MAX:STEP (e.g., 4:64:4). If not provided, uses NCCL defaults'
     )
     
     parser.add_argument(
@@ -416,6 +565,18 @@ Examples:
     parser.add_argument(
         '--nodes', '-n',
         help='Node count or range: N or MIN-MAX (e.g., 2 or 1-4). Default: all available'
+    )
+    
+    parser.add_argument(
+        '--algo',
+        choices=['all', 'RING', 'TREE'],
+        help='Algorithm to use: RING, TREE, or "all" to sweep both. Default: NCCL auto'
+    )
+    
+    parser.add_argument(
+        '--proto',
+        choices=['all', 'LL', 'LL128', 'SIMPLE'],
+        help='Protocol to use: LL, LL128, SIMPLE, or "all" to sweep all. Default: NCCL auto'
     )
     
     parser.add_argument(
