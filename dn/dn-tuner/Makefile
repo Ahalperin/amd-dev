@@ -1,18 +1,15 @@
 #
-# Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
-#
-# See LICENSE.txt for license information
+# Drivenets 23/12/2025
 #
 
 .DEFAULT_GOAL: build
-PLUGIN_SO:=libnccl-tuner-example.so
+PLUGIN_SO:=librccl-tunerv4-dn.so
 include makefiles/common.mk
 SRCDIR   ?= $(abspath ../..)
 BUILDDIR ?= .
 NCCLDIR  := $(BUILDDIR)
 
 SRC_FILES := $(wildcard *.c)
-DST_DIR   := $(BUILDDIR)/test/unit/plugins
 
 default: ${BUILDDIR}/$(PLUGIN_SO)
 
@@ -22,17 +19,6 @@ ${BUILDDIR}/$(PLUGIN_SO): plugin.c
 	@printf "Compiling  %-35s > %s\n" $< $@
 	@mkdir -p ${BUILDDIR}
 	$(CC) -Inccl $(INC) -fPIC -shared -o $@ -Wl,-soname,$(PLUGIN_SO) $^
-
-# Test targets - delegate to test directory
-test:
-	$(MAKE) -C test test TEST_CASE=$(TEST_CASE)
-
-test-verbose:
-	$(MAKE) -C test test-verbose TEST_CASE=$(TEST_CASE)
-
-# Build tests
-test-build:
-	$(MAKE) -C test all
 
 # Optimize configurations from performance data
 optimize-config:
@@ -50,6 +36,5 @@ optimize-config:
 
 clean:
 	rm -f ${BUILDDIR}/$(PLUGIN_SO)
-	$(MAKE) -C test clean
 
-.PHONY: test test-verbose test-build optimize-config clean
+.PHONY: optimize-config clean
