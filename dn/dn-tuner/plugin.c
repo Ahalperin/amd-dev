@@ -91,6 +91,7 @@ static int parseAlgorithm(const char* str) {
 // Convert algorithm to string
 static const char* algorithmToString(int algorithm) {
   switch (algorithm) {
+    case -1: return "any";  // Wildcard: let RCCL decide
     case NCCL_ALGO_TREE: return "tree";
     case NCCL_ALGO_RING: return "ring";
     case NCCL_ALGO_COLLNET_DIRECT: return "collnet_direct";
@@ -102,8 +103,9 @@ static const char* algorithmToString(int algorithm) {
   }
 }
 
-// Parse protocol from string
+// Parse protocol from string (-1 means wildcard/let RCCL decide)
 static int parseProtocol(const char* str) {
+  if (strcmp(str, "-1") == 0) return -1;  // Wildcard: let RCCL decide
   if (strcmp(str, "ll") == 0) return NCCL_PROTO_LL;
   if (strcmp(str, "ll128") == 0) return NCCL_PROTO_LL128;
   if (strcmp(str, "simple") == 0) return NCCL_PROTO_SIMPLE;
@@ -113,6 +115,7 @@ static int parseProtocol(const char* str) {
 // Convert protocol to string
 static const char* protocolToString(int protocol) {
   switch (protocol) {
+    case -1: return "any";  // Wildcard: let RCCL decide
     case NCCL_PROTO_LL: return "ll";
     case NCCL_PROTO_LL128: return "ll128";
     case NCCL_PROTO_SIMPLE: return "simple";
@@ -369,7 +372,22 @@ __hidden ncclResult_t pluginGetCollInfo(void* context, ncclFunc_t collType, size
                          algorithmToString(config->algorithm), protocolToString(config->protocol), config->nChannels);
       }
 
-      // Check bounds
+      // Check if this is "channels-only" mode (both algo and proto are wildcards)
+      if (config->algorithm == -1 && config->protocol == -1) {
+        // Only set channels, let RCCL determine algo/proto using its internal cost model
+        if (config->nChannels != -1) {
+          *nChannels = config->nChannels;
+        }
+
+        if (ctx->logFunction) {
+          ctx->logFunction(NCCL_LOG_INFO, NCCL_TUNING, __FILE__, __LINE__,
+                           "TUNER/ExamplePlugin: Applied channels-only config for collType=%s, bytes=%zu: channels=%d (algo/proto determined by RCCL, nodes=%d, ranks=%d)",
+                           collTypeToString(config->collType), nBytes, config->nChannels, config->nNodes, config->nRanks);
+        }
+        return ncclSuccess;
+      }
+
+      // Check bounds for explicit algo/proto specification
       if (config->algorithm < numAlgo && config->protocol < numProto) {
         if (table[config->algorithm][config->protocol] != NCCL_ALGO_PROTO_IGNORE) {
           if (ctx->logFunction) {
