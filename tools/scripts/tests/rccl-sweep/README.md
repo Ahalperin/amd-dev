@@ -203,6 +203,29 @@ FROM sweep_runs WHERE status='success' GROUP BY collective;
 SELECT * FROM sweep_runs WHERE status='success';
 ```
 
+## Plotting Results
+
+Generate bus bandwidth vs message size graphs using `plot_busbw.py`:
+
+```bash
+# Plot specific collective and node count
+python plot_busbw.py all_reduce_perf 1 -o all_reduce_1node.png
+python plot_busbw.py all_reduce_perf 2 -o all_reduce_2node.png
+
+# Use custom database path
+python plot_busbw.py reduce_scatter_perf 1 --db /path/to/sweep_results.db -o output.png
+
+# Display interactively (no -o flag)
+python plot_busbw.py alltoall_perf 2
+```
+
+**Collective types**: `all_reduce_perf`, `reduce_scatter_perf`, `all_gather_perf`, `alltoall_perf`, `broadcast_perf`, `reduce_perf`
+
+The script will:
+- Query the database for matching runs
+- Plot bus bandwidth (in-place) vs message size on a log₂ x-axis
+- Show multiple sessions as separate curves if data spans multiple sweeps
+
 ## Test Matrix
 
 For a full sweep with 9 servers and channels 4:64:4:
@@ -249,6 +272,7 @@ The tool sets these NCCL environment variables (from sweep_config.yaml):
 |------|-------------|
 | rccl_sweep.py | Main CLI entry point |
 | analyze_sweep.py | Results analysis tool |
+| plot_busbw.py | Generate bus bandwidth graphs |
 | sweep_config.yaml | Default configuration |
 | sweep_executor.py | Test execution engine |
 | sweep_parser.py | Output parsing |
