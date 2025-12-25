@@ -115,6 +115,7 @@ def parse_channels(channels_str: str) -> List[int]:
 ALGO_MAP = {
     'RING': 'Ring',
     'TREE': 'Tree',
+    'DIRECT': 'Direct',
 }
 
 PROTO_MAP = {
@@ -128,7 +129,7 @@ def parse_algo(algo_str: Optional[str]) -> List[Optional[str]]:
     """Parse algorithm specification.
     
     Args:
-        algo_str: 'all', 'RING', 'TREE', or None
+        algo_str: 'all', comma-separated list (e.g., 'RING,TREE'), single value, or None
         
     Returns:
         List of algorithm values (None means use NCCL default)
@@ -137,14 +138,24 @@ def parse_algo(algo_str: Optional[str]) -> List[Optional[str]]:
         return [None]
     if algo_str == 'all':
         return list(ALGO_MAP.keys())
-    return [algo_str]
+    
+    # Parse comma-separated list
+    algos = []
+    for algo in algo_str.split(','):
+        algo = algo.strip().upper()
+        if algo not in ALGO_MAP:
+            print(f"{Fore.RED}Error: Invalid algorithm '{algo}'. "
+                  f"Valid options: {', '.join(sorted(ALGO_MAP.keys()))}{Style.RESET_ALL}")
+            sys.exit(1)
+        algos.append(algo)
+    return algos
 
 
 def parse_proto(proto_str: Optional[str]) -> List[Optional[str]]:
     """Parse protocol specification.
     
     Args:
-        proto_str: 'all', 'LL', 'LL128', 'SIMPLE', or None
+        proto_str: 'all', comma-separated list (e.g., 'LL,LL128'), single value, or None
         
     Returns:
         List of protocol values (None means use NCCL default)
@@ -153,7 +164,17 @@ def parse_proto(proto_str: Optional[str]) -> List[Optional[str]]:
         return [None]
     if proto_str == 'all':
         return list(PROTO_MAP.keys())
-    return [proto_str]
+    
+    # Parse comma-separated list
+    protos = []
+    for proto in proto_str.split(','):
+        proto = proto.strip().upper()
+        if proto not in PROTO_MAP:
+            print(f"{Fore.RED}Error: Invalid protocol '{proto}'. "
+                  f"Valid options: {', '.join(sorted(PROTO_MAP.keys()))}{Style.RESET_ALL}")
+            sys.exit(1)
+        protos.append(proto)
+    return protos
 
 
 def get_algo_env_value(algo: Optional[str]) -> Optional[str]:
@@ -265,15 +286,26 @@ def run_sweep(args, config: Dict[str, Any]):
     print(f"Found {len(servers)} server(s) in {args.servers}")
     
     # Determine collectives to run
+    valid_collectives = {'all_reduce', 'reduce_scatter', 'all_gather', 'alltoall', 'broadcast', 'reduce'}
+    
     if args.collective:
         if args.collective == 'all':
             collectives = config.get('collectives', DEFAULT_COLLECTIVES)
         else:
-            # Map short name to full name
-            coll_name = args.collective
-            if not coll_name.endswith('_perf'):
-                coll_name = f"{coll_name}_perf"
-            collectives = [coll_name]
+            # Parse comma-separated list
+            collectives = []
+            for coll in args.collective.split(','):
+                coll = coll.strip()
+                # Strip _perf suffix for validation
+                coll_base = coll.replace('_perf', '')
+                if coll_base not in valid_collectives:
+                    print(f"{Fore.RED}Error: Invalid collective '{coll}'. "
+                          f"Valid options: {', '.join(sorted(valid_collectives))}{Style.RESET_ALL}")
+                    sys.exit(1)
+                # Add _perf suffix if not present
+                if not coll.endswith('_perf'):
+                    coll = f"{coll}_perf"
+                collectives.append(coll)
     else:
         collectives = config.get('collectives', DEFAULT_COLLECTIVES)
     
@@ -518,6 +550,9 @@ Examples:
   # Run single collective
   %(prog)s --collective all_reduce --channels 4:64:4
 
+  # Run multiple collectives
+  %(prog)s --collective all_reduce,all_gather --channels 4:64:4
+
   # Run on specific node count
   %(prog)s --nodes 2 --channels 4:64:4
 
@@ -529,6 +564,9 @@ Examples:
 
   # Use specific algorithm and protocol
   %(prog)s --channels 4:64:4 --algo RING --proto LL128
+
+  # Use multiple algorithms and/or protocols
+  %(prog)s --channels 4:64:4 --algo RING,TREE --proto LL,LL128
 
   # Full sweep: all algos x all protos
   %(prog)s --channels 4:64:4 --algo all --proto all
@@ -557,9 +595,8 @@ Examples:
     
     parser.add_argument(
         '--collective',
-        choices=['all', 'all_reduce', 'reduce_scatter', 'all_gather', 
-                 'alltoall', 'broadcast', 'reduce'],
-        help='Specific collective to run, or "all" for all collectives'
+        help='Collective(s) to run: comma-separated list (e.g., all_reduce,all_gather) or "all". '
+             'Valid: all_reduce, reduce_scatter, all_gather, alltoall, broadcast, reduce'
     )
     
     parser.add_argument(
@@ -569,14 +606,14 @@ Examples:
     
     parser.add_argument(
         '--algo',
-        choices=['all', 'RING', 'TREE'],
-        help='Algorithm to use: RING, TREE, or "all" to sweep both. Default: NCCL auto'
+        help='Algorithm(s) to use: comma-separated list (e.g., RING,TREE) or "all". '
+             'Valid: RING, TREE, DIRECT. Default: NCCL auto'
     )
     
     parser.add_argument(
         '--proto',
-        choices=['all', 'LL', 'LL128', 'SIMPLE'],
-        help='Protocol to use: LL, LL128, SIMPLE, or "all" to sweep all. Default: NCCL auto'
+        help='Protocol(s) to use: comma-separated list (e.g., LL,LL128) or "all". '
+             'Valid: LL, LL128, SIMPLE. Default: NCCL auto'
     )
     
     parser.add_argument(
