@@ -572,7 +572,7 @@ Examples:
   %(prog)s --channels 4:64:4 --algo all --proto all
 
   # Custom message sizes (default: 1M to 16G)
-  %(prog)s --channels 4:64:4 --min-bytes 256M --max-bytes 1G
+  %(prog)s --channels 4:64:4 --min-size 256M --max-size 1G
 
   # Dry run - show commands without executing
   %(prog)s --channels 4:64:4 --dry-run
@@ -623,13 +623,19 @@ Examples:
     )
     
     parser.add_argument(
-        '--min-bytes',
+        '--min-size',
         help='Override minimum message size (e.g., 1M, 256M)'
     )
     
     parser.add_argument(
-        '--max-bytes',
+        '--max-size',
         help='Override maximum message size (e.g., 1G, 16G)'
+    )
+    
+    parser.add_argument(
+        '--step-size',
+        help='Override step factor with fixed step size (e.g., 1M, 4K, 100000). '
+             'Uses -i instead of default -f 2'
     )
     
     parser.add_argument(
@@ -661,10 +667,12 @@ Examples:
     config = load_config(str(config_path))
     
     # Apply overrides
-    if args.min_bytes:
-        config.setdefault('test_defaults', {})['min_bytes'] = args.min_bytes
-    if args.max_bytes:
-        config.setdefault('test_defaults', {})['max_bytes'] = args.max_bytes
+    if args.min_size:
+        config.setdefault('test_defaults', {})['min_bytes'] = args.min_size
+    if args.max_size:
+        config.setdefault('test_defaults', {})['max_bytes'] = args.max_size
+    if args.step_size:
+        config.setdefault('test_defaults', {})['step_bytes'] = args.step_size
     
     # Run sweep
     run_sweep(args, config)

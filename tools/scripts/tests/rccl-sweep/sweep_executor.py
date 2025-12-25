@@ -169,7 +169,11 @@ class SweepExecutor:
         cmd.append(test_executable)
         cmd.extend(['-b', str(test_defaults.get('min_bytes', '1M'))])
         cmd.extend(['-e', str(test_defaults.get('max_bytes', '16G'))])
-        cmd.extend(['-f', str(test_defaults.get('step_factor', 2))])
+        # Use -i (step bytes) if step_bytes is set, otherwise use -f (step factor)
+        if test_defaults.get('step_bytes'):
+            cmd.extend(['-i', str(test_defaults.get('step_bytes'))])
+        else:
+            cmd.extend(['-f', str(test_defaults.get('step_factor', 2))])
         cmd.extend(['-g', str(test_defaults.get('gpus_per_rank', 1))])
         cmd.extend(['-n', str(test_defaults.get('iterations', 20))])
         cmd.extend(['-w', str(test_defaults.get('warmup_iters', 5))])

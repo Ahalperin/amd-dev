@@ -128,6 +128,10 @@ class RCCLOutputParser:
                 try:
                     parts = stripped.split()
                     if len(parts) >= 13:
+                        # Helper to parse int that may be 'N/A'
+                        def parse_int_or_na(val):
+                            return -1 if val == 'N/A' else int(val)
+                        
                         metric = {
                             'size_bytes': int(parts[0]),
                             'count': int(parts[1]),
@@ -138,12 +142,12 @@ class RCCLOutputParser:
                             'time_oop_us': float(parts[5]),
                             'algbw_oop': float(parts[6]),
                             'busbw_oop': float(parts[7]),
-                            'errors_oop': int(parts[8]),
+                            'errors_oop': parse_int_or_na(parts[8]),
                             # In-place metrics
                             'time_ip_us': float(parts[9]),
                             'algbw_ip': float(parts[10]),
                             'busbw_ip': float(parts[11]),
-                            'errors_ip': int(parts[12]),
+                            'errors_ip': parse_int_or_na(parts[12]),
                         }
                         # Parse extended columns if present (algo, proto, nchannels)
                         if len(parts) >= 16:
