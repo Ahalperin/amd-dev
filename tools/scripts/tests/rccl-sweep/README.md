@@ -226,6 +226,88 @@ The script will:
 - Plot bus bandwidth (in-place) vs message size on a log₂ x-axis
 - Show multiple sessions as separate curves if data spans multiple sweeps
 
+## Merging Results and Generating Tuner Config
+
+When running multiple sweeps, you can merge all results into a single CSV file and then convert it to an RCCL tuner configuration file.
+
+### Step 1: Merge Metrics from Multiple Runs
+
+Use `merge_metrics.py` to combine all `metrics.csv` files from different run directories:
+
+```bash
+# Merge all metrics.csv files from sweep_results/run_* directories
+python merge_metrics.py
+
+# Custom base path
+python merge_metrics.py --base-path /path/to/sweep_results
+
+# Custom output file
+python merge_metrics.py -o /path/to/output.csv
+
+# Include run_id column to track source of each row
+python merge_metrics.py --add-run-column
+```
+
+**Options:**
+- `--base-path`: Path to sweep_results directory (default: `./sweep_results`)
+- `--output, -o`: Output file path (default: `<base_path>/merged_metrics.csv`)
+- `--add-run-column`: Add a column identifying which run each row came from
+
+The script will:
+- Find all `run_*` directories containing `metrics.csv` files
+- Merge them into a single CSV with consistent headers
+- Output the combined file to `sweep_results/merged_metrics.csv`
+
+### Step 2: Convert to RCCL Tuner Config
+
+Use `convert_sweep_to_tuner.py` to convert the merged CSV into an RCCL tuner configuration file:
+
+```bash
+# Convert merged metrics to tuner config
+python ../../dn/dn-tuner/convert/convert_sweep_to_tuner.py \
+    sweep_results/merged_metrics.csv \
+    /path/to/output_tuner.conf \
+    --header
+
+# With custom ranks per node
+python ../../dn/dn-tuner/convert/convert_sweep_to_tuner.py \
+    sweep_results/merged_metrics.csv \
+    output_tuner.conf \
+    --ranks-per-node 8 \
+    --header
+```
+
+**Options:**
+- `input_file`: Path to merged metrics CSV
+- `output_file`: Path to output config file (optional, defaults to stdout)
+- `--ranks-per-node`: Number of ranks per node (default: 8)
+- `--header`: Include header comments in output
+
+The converter will:
+- Map collective names to tuner format (e.g., `all_reduce_perf` → `allreduce`)
+- Extract algorithm and protocol values (e.g., `ring`, `tree`, `ll`, `simple`)
+- Compute byte ranges for each configuration
+- Merge consecutive entries with identical properties to reduce config size
+
+### Complete Workflow Example
+
+```bash
+# 1. Run sweeps (can be done over multiple sessions)
+./rccl_sweep.py -c 4:64:4 --nodes 1-2
+
+# 2. Merge all results
+python merge_metrics.py
+
+# 3. Convert to tuner config
+python ../../dn/dn-tuner/convert/convert_sweep_to_tuner.py \
+    sweep_results/merged_metrics.csv \
+    /path/to/my_tuner.conf \
+    --header
+
+# Output example:
+# Converted 18432 rows -> 615 rows (merged) to /path/to/my_tuner.conf
+```
+
 ## Test Matrix
 
 For a full sweep with 9 servers and channels 4:64:4:
@@ -273,6 +355,7 @@ The tool sets these NCCL environment variables (from sweep_config.yaml):
 | rccl_sweep.py | Main CLI entry point |
 | analyze_sweep.py | Results analysis tool |
 | plot_busbw.py | Generate bus bandwidth graphs |
+| merge_metrics.py | Merge metrics.csv files from multiple runs |
 | sweep_config.yaml | Default configuration |
 | sweep_executor.py | Test execution engine |
 | sweep_parser.py | Output parsing |
