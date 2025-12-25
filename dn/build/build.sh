@@ -17,6 +17,7 @@ AMD_ANP_BRANCH="tags/v1.1.0-5"
 LOG_DIR="${DN_DIR}/build"
 ENABLE_LOGGING=true
 RCCL_DISABLE_MSCCL_FLAGS=""
+SKIP_REPO_CHECK=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -50,6 +51,11 @@ while [[ $# -gt 0 ]]; do
             echo "RCCL MSCCL disabled"
             shift
             ;;
+        --skip-repo-check)
+            SKIP_REPO_CHECK=true
+            echo "Skipping repository checkout checks"
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
@@ -59,6 +65,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --log-dir DIR          Directory for log file (default: /home/dn/amd-dev/dn/build)"
             echo "  --no-log               Disable logging to file"
             echo "  --rccl-disable-msccl   Disable MSCCL++ and MSCCL kernel in RCCL build"
+            echo "  --skip-repo-check      Skip git checkout/fetch operations on repositories"
             echo "  -h, --help             Show this help message"
             exit 0
             ;;
@@ -119,6 +126,7 @@ echo "RCCL Branch: ${RCCL_BRANCH}"
 echo "AMD-ANP Branch: ${AMD_ANP_BRANCH}"
 echo "NPKit: ${NPKIT_FLAG:-disabled}"
 echo "MSCCL: $([ -n \"${RCCL_DISABLE_MSCCL_FLAGS}\" ] && echo 'disabled' || echo 'enabled')"
+echo "Skip Repo Check: $([ \"${SKIP_REPO_CHECK}\" = true ] && echo 'yes' || echo 'no')"
 echo "============================================"
 echo ""
 
@@ -131,12 +139,16 @@ export ROCM_HOME=/opt/rocm-7.0.1/
 
 # checkout git rccl to specified branch/tag
 cd ${DN_DIR}/rccl/
-git fetch -p
-echo "Checking out RCCL: ${RCCL_BRANCH}"
-git checkout ${RCCL_BRANCH}
-# Only pull if we're on a branch (not a tag/detached HEAD)
-if git symbolic-ref -q HEAD > /dev/null; then
-    git pull --rebase
+if [ "$SKIP_REPO_CHECK" = false ]; then
+    git fetch -p
+    echo "Checking out RCCL: ${RCCL_BRANCH}"
+    git checkout ${RCCL_BRANCH}
+    # Only pull if we're on a branch (not a tag/detached HEAD)
+    if git symbolic-ref -q HEAD > /dev/null; then
+        git pull --rebase
+    fi
+else
+    echo "Skipping RCCL checkout (using current state)"
 fi
 
 # build rccl based on specified branch
@@ -154,12 +166,16 @@ make MPI=1 MPI_HOME=${OMPI_HOME} NCCL_HOME=${RCCL_INSTALL_DIR} -j
 
 # checkout amd-anp to specified branch/tag
 cd ${DN_DIR}/amd-anp
-git fetch -p
-echo "Checking out AMD-ANP: ${AMD_ANP_BRANCH}"
-git checkout ${AMD_ANP_BRANCH}
-# Only pull if we're on a branch (not a tag/detached HEAD)
-if git symbolic-ref -q HEAD > /dev/null; then
-    git pull --rebase
+if [ "$SKIP_REPO_CHECK" = false ]; then
+    git fetch -p
+    echo "Checking out AMD-ANP: ${AMD_ANP_BRANCH}"
+    git checkout ${AMD_ANP_BRANCH}
+    # Only pull if we're on a branch (not a tag/detached HEAD)
+    if git symbolic-ref -q HEAD > /dev/null; then
+        git pull --rebase
+    fi
+else
+    echo "Skipping AMD-ANP checkout (using current state)"
 fi
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
