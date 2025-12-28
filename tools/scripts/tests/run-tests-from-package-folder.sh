@@ -1,8 +1,8 @@
 export MY_PATH=/home/amir/rccl-bins/drop_2025-08
 export MY_PATH=/home/amir/rccl-bins/develop
 export MY_PATH=/home/amir/rccl-bins/2025-06-J13A-1
-export MY_PATH=/home/amir/rccl-bins/show_alltoall_algo_proto_and_channels
-export MY_PATH=/home/amir/rccl-bins/develop_dn_tuner
+export MY_PATH=/home/dn/rccl-bins/show_alltoall_algo_proto_and_channels
+export MY_PATH=/home/dn/rccl-bins/develop_dn_tuner
 
 # 172.30.160.131:8 is under use of GPU mem
 
@@ -126,7 +126,6 @@ mpirun --np 16 --allow-run-as-root \
 -x NCCL_GDR_FLUSH_DISABLE=1 \
 -x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
 -x NCCL_GDRCOPY_ENABLE=0 \
--x NCCL_IB_QPS_PER_CONNECTION=1 \
 -x HSA_NO_SCRATCH_RECLAIM=1 \
 -x NCCL_IB_TC=104 \
 -x NCCL_IB_FIFO_TC=192 \
@@ -146,12 +145,52 @@ mpirun --np 16 --allow-run-as-root \
 -x NCCL_LEGACY_CUDA_REGISTER=1 \
 -x NCCL_TUNER_PLUGIN=${MY_PATH}/librccl-tunerv4-dn.so \
 -x NCCL_TUNER_CONFIG_FILE=${MY_PATH}/dn-tuner-conf/xai_gfx950_tuner.conf \
-${MY_PATH}/alltoall_perf -b 1M -e 512M -i 1M -g 1 -n 5 -c 1 -w 5 -R 1 -M 1
+-x NCCL_ALGO=TREE \
+-x NCCL_PROTO=SIMPLE \
+-x NCCL_MIN_NCHANNELS=64 \
+-x NCCL_MAX_NCHANNELS=64 \
+${MY_PATH}/all_reduce_perf -b 1M -e 512M -i 1M -g 1 -n 5 -c 1 -w 5 -R 1 -M 1
 
 -x NCCL_MIN_NCHANNELS=1 \
 -x NCCL_MAX_NCHANNELS=64 \
 -x NCCL_ALGO=Tree \
--x NCCL_PROTO=LL128 \
+-x NCCL_PROTO=SIMPLE \
 -x NCCL_MIN_NCHANNELS=64 \
 -x NCCL_MAX_NCHANNELS=64 \
 
+
+mpirun --np 8 --allow-run-as-root \
+-H 172.30.160.150:8 \
+--bind-to numa \
+--mca oob_tcp_if_include enp81s0f1np1 \
+--mca btl_tcp_if_include enp81s0f1np1 \
+-x NCCL_SOCKET_IFNAME=enp81s0f1np1 \
+-x PATH=/usr/local/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin \
+-x LD_LIBRARY_PATH=${MY_PATH}:/usr/local/lib: \
+-x LD_PRELOAD=${MY_PATH}/librccl-net.so:${MY_PATH}/librccl.so \
+-x NCCL_IB_HCA=ionic_0:1,ionic_1:1,ionic_2:1,ionic_3:1,ionic_4:1,ionic_5:1,ionic_6:1,ionic_7:1 \
+-x NCCL_IB_GID_INDEX=1 \
+-x NCCL_GDR_FLUSH_DISABLE=1 \
+-x RCCL_GDR_FLUSH_GPU_MEM_NO_RELAXED_ORDERING=0 \
+-x NCCL_GDRCOPY_ENABLE=0 \
+-x HSA_NO_SCRATCH_RECLAIM=1 \
+-x NCCL_IB_TC=104 \
+-x NCCL_IB_FIFO_TC=192 \
+-x NCCL_IGNORE_CPU_AFFINITY=1 \
+-x NET_OPTIONAL_RECV_COMPLETION=1 \
+-x NCCL_IB_USE_INLINE=1 \
+-x IONIC_LOCKFREE=all \
+-x NCCL_PXN_DISABLE=0 \
+-x NCCL_GFX9_CHEAP_FENCE_OFF=0 \
+-x NCCL_DEBUG=WARN \
+-x NCCL_DEBUG_SUBSYS=TUNING \
+-x NCCL_DEBUG_FILE=nccl_debug.log \
+-x NCCL_IB_QPS_PER_CONNECTION=2 \
+-x NCCL_IB_SPLIT_DATA_ON_QPS=1 \
+-x NCCL_TUNER_PLUGIN=${MY_PATH}/librccl-tunerv4-dn.so \
+-x NCCL_TUNER_CONFIG_FILE=${MY_PATH}/dn-tuner-conf/xai_gfx950_tuner.conf \
+-x NCCL_ALGO=RING \
+-x NCCL_PROTO=SIMPLE \
+-x NCCL_MIN_NCHANNELS=128 \
+-x NCCL_MAX_NCHANNELS=128 \
+${MY_PATH}/all_reduce_perf -b 1M -e 512M -i 1M -g 1 -n 5 -c 1 -w 5 -R 1 -M 1
