@@ -59,7 +59,7 @@ output:
   
   # Generated tuner configuration file
   # (relative to output.dir if not absolute)
-  tuner_conf: "generated_tuner.conf"
+  tuner_conf: "generated_tuner.csv"
   
   # Tuning report CSV
   # (relative to output.dir if not absolute)

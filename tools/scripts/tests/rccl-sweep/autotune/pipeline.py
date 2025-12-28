@@ -514,7 +514,7 @@ class AutoTunePipeline:
         if self.config.tuner_output:
             output_path = Path(self.config.tuner_output)
         else:
-            output_path = self.config.output_dir / 'generated_tuner.conf'
+            output_path = self.config.output_dir / 'generated_tuner.csv'
         
         if self.dry_run:
             self._log(f"  [DRY RUN] Would generate tuner config: {output_path}")
@@ -523,7 +523,7 @@ class AutoTunePipeline:
         self.config_generator.generate(
             optimized_path,
             output_path,
-            include_algo_proto=False,  # Use -1 for algo/proto
+            include_algo_proto=True,  # Include actual algo/proto from metrics
         )
         
         self._log(f"  Generated: {output_path}")

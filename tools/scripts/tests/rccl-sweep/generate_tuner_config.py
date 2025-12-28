@@ -62,7 +62,7 @@ Output Format:
         type=Path,
         default=None,
         metavar='FILE',
-        help='Output path for tuner.conf (default: <input_dir>/generated_tuner.conf)'
+        help='Output path for tuner CSV (default: <input_dir>/generated_tuner.csv)'
     )
     parser.add_argument(
         '--csv-report',
@@ -96,7 +96,7 @@ Output Format:
     
     # Set default output path
     if args.output is None:
-        args.output = args.input_file.parent / 'generated_tuner.conf'
+        args.output = args.input_file.parent / 'generated_tuner.csv'
     
     # Generate config
     generator = TunerConfigGenerator(merge_ranges=not args.no_merge)

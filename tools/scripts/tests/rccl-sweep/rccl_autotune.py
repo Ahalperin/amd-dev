@@ -162,7 +162,7 @@ Examples:
         '--tuner-output',
         type=Path,
         metavar='FILE',
-        help='Path for generated tuner.conf (default: <output-dir>/generated_tuner.conf)'
+        help='Path for generated tuner CSV (default: <output-dir>/generated_tuner.csv)'
     )
     output_group.add_argument(
         '--report-output',
