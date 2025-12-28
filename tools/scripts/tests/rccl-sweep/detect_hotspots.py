@@ -275,6 +275,82 @@ def print_summary(hotspots: list[HotSpot]) -> None:
         print()
 
 
+def generate_sweep_suggestions(hotspots: list[HotSpot]) -> list[dict]:
+    """
+    Generate sweep suggestions for each hotspot.
+    
+    Returns list of suggested sweep configurations to run for refinement.
+    """
+    suggestions = []
+    
+    # Alternative algorithms to try
+    algo_alternatives = {
+        'RING': ['TREE'],
+        'TREE': ['RING'],
+        'Direct': ['RING', 'TREE'],
+    }
+    
+    for hs in hotspots:
+        # Calculate channel range expansion
+        current_channels = hs.nchannels or 32
+        min_ch = max(4, current_channels // 2)
+        max_ch = min(256, current_channels * 2)
+        step = max(4, (max_ch - min_ch) // 8)
+        
+        suggestion = {
+            'collective': hs.collective.replace('_perf', ''),
+            'nodes': hs.num_nodes,
+            'min_size': format_bytes(hs.start_bytes),
+            'max_size': format_bytes(hs.end_bytes),
+            'channels': f"{min_ch}:{max_ch}:{step}",
+            'suggested_algos': algo_alternatives.get(hs.algo, ['RING', 'TREE']),
+            'current_algo': hs.algo,
+            'current_channels': hs.nchannels,
+            'drop_percent': hs.drop_percent_max,
+        }
+        suggestions.append(suggestion)
+    
+    return suggestions
+
+
+def hotspot_to_dict(hs: HotSpot) -> dict:
+    """Convert a HotSpot to a dictionary for JSON serialization."""
+    return {
+        'collective': hs.collective,
+        'num_nodes': hs.num_nodes,
+        'num_gpus': hs.num_gpus,
+        'start_bytes': hs.start_bytes,
+        'end_bytes': hs.end_bytes,
+        'start_bytes_human': format_bytes(hs.start_bytes),
+        'end_bytes_human': format_bytes(hs.end_bytes),
+        'expected_busbw': round(hs.expected_busbw, 2),
+        'actual_busbw_min': round(hs.actual_busbw_min, 2),
+        'actual_busbw_max': round(hs.actual_busbw_max, 2),
+        'drop_percent_min': round(hs.drop_percent_min, 1),
+        'drop_percent_max': round(hs.drop_percent_max, 1),
+        'algo': hs.algo,
+        'proto': hs.proto,
+        'nchannels': hs.nchannels,
+        'data_points': hs.data_points,
+    }
+
+
+def write_json_report(hotspots: list[HotSpot], output_path: Path, include_suggestions: bool = True) -> None:
+    """Write hot-spots to JSON file."""
+    import json
+    
+    data = {
+        'hotspots': [hotspot_to_dict(hs) for hs in hotspots],
+        'count': len(hotspots),
+    }
+    
+    if include_suggestions:
+        data['sweep_suggestions'] = generate_sweep_suggestions(hotspots)
+    
+    with open(output_path, 'w') as f:
+        json.dump(data, f, indent=2)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Detect RCCL performance hot-spots from sweep metrics',
@@ -289,6 +365,12 @@ Examples:
 
   # Verbose output with minimum drop filter
   python detect_hotspots.py merged_metrics.csv --threshold 0.10 --min-drop 1.0 --verbose
+
+  # Output as JSON for programmatic use
+  python detect_hotspots.py merged_metrics.csv --json -o hotspots.json
+
+  # JSON output with sweep suggestions
+  python detect_hotspots.py merged_metrics.csv --json --suggest-sweeps
         """
     )
     
@@ -302,7 +384,7 @@ Examples:
         '--output', '-o',
         type=Path,
         default=None,
-        help='Output CSV path for detailed report (default: <input_dir>/hotspots_report.csv)'
+        help='Output path for report (default: <input_dir>/hotspots_report.csv or .json)'
     )
     
     parser.add_argument(
@@ -320,9 +402,27 @@ Examples:
     )
     
     parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Output as JSON instead of CSV'
+    )
+    
+    parser.add_argument(
+        '--suggest-sweeps',
+        action='store_true',
+        help='Include sweep suggestions in JSON output (requires --json)'
+    )
+    
+    parser.add_argument(
         '--verbose', '-v',
         action='store_true',
         help='Print detailed summary to stdout'
+    )
+    
+    parser.add_argument(
+        '--quiet', '-q',
+        action='store_true',
+        help='Suppress progress output (useful with --json for piping)'
     )
     
     args = parser.parse_args()
@@ -332,26 +432,39 @@ Examples:
         print(f"Error: Input file not found: {args.input_file}", file=sys.stderr)
         sys.exit(1)
     
-    # Set default output path
+    # Set default output path based on format
     if args.output is None:
-        args.output = args.input_file.parent / 'hotspots_report.csv'
+        if args.json:
+            args.output = args.input_file.parent / 'hotspots_report.json'
+        else:
+            args.output = args.input_file.parent / 'hotspots_report.csv'
     
     # Parse metrics
-    print(f"Reading metrics from: {args.input_file}")
+    if not args.quiet:
+        print(f"Reading metrics from: {args.input_file}")
     rows = parse_metrics_csv(args.input_file)
-    print(f"Loaded {len(rows)} metric rows")
+    if not args.quiet:
+        print(f"Loaded {len(rows)} metric rows")
     
     # Detect hot-spots
-    print(f"Detecting hot-spots with threshold={args.threshold*100:.0f}%, min_drop={args.min_drop} GB/s")
+    if not args.quiet:
+        print(f"Detecting hot-spots with threshold={args.threshold*100:.0f}%, min_drop={args.min_drop} GB/s")
     hotspots = detect_hotspots(rows, args.threshold, args.min_drop)
-    print(f"Detected {len(hotspots)} hot-spots")
+    if not args.quiet:
+        print(f"Detected {len(hotspots)} hot-spots")
     
-    # Write CSV report
-    write_csv_report(hotspots, args.output)
-    print(f"CSV report written to: {args.output}")
+    # Write report in requested format
+    if args.json:
+        write_json_report(hotspots, args.output, include_suggestions=args.suggest_sweeps)
+        if not args.quiet:
+            print(f"JSON report written to: {args.output}")
+    else:
+        write_csv_report(hotspots, args.output)
+        if not args.quiet:
+            print(f"CSV report written to: {args.output}")
     
-    # Print summary if verbose
-    if args.verbose or len(hotspots) > 0:
+    # Print summary if verbose (and not in quiet mode)
+    if not args.quiet and (args.verbose or len(hotspots) > 0):
         print_summary(hotspots)
 
 
