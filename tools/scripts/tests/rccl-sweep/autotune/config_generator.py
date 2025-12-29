@@ -174,9 +174,10 @@ class TunerConfigGenerator:
     
     def _merge_adjacent_ranges(self, entries: List[TunerEntry]) -> List[TunerEntry]:
         """
-        Merge adjacent size ranges that have identical configurations.
+        Merge consecutive size ranges that have identical configurations.
         
-        Adjacent means max_bytes of one entry + 1 == min_bytes of the next entry.
+        Consecutive means entries that are next to each other when sorted by size
+        within the same (collective, num_nodes, num_ranks) group.
         """
         if not entries:
             return entries
@@ -193,7 +194,7 @@ class TunerConfigGenerator:
             # Sort by min_bytes
             group_entries.sort(key=lambda e: e.min_bytes)
             
-            # Merge adjacent ranges with same config
+            # Merge consecutive entries with same config
             current = None
             for entry in group_entries:
                 if current is None:
@@ -230,12 +231,15 @@ class TunerConfigGenerator:
         return merged
     
     def _can_merge(self, current: TunerEntry, next_entry: TunerEntry) -> bool:
-        """Check if two entries can be merged (adjacent and same config)."""
-        # Check if adjacent (allowing for small gaps in size granularity)
-        if next_entry.min_bytes > current.max_bytes + 1:
-            return False
+        """
+        Check if two consecutive entries can be merged (same config).
         
-        # Check if same configuration
+        Entries are considered mergeable if they have identical algorithm,
+        protocol, and channels. The adjacency check is removed because entries
+        are already sorted by size - consecutive entries in the sorted order
+        should be merged if they have the same config.
+        """
+        # Check if same configuration (adjacency is implied by sort order)
         return (
             current.algorithm == next_entry.algorithm and
             current.protocol == next_entry.protocol and

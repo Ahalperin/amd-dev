@@ -12,13 +12,26 @@ import sys
 from pathlib import Path
 
 
-def find_metrics_files(base_path: Path) -> list[tuple[str, Path]]:
-    """Find all metrics.csv files in run_* directories."""
+def find_metrics_files(
+    base_path: Path,
+    metrics_filename: str = "metrics.csv",
+    dir_suffix: str | None = None,
+) -> list[tuple[str, Path]]:
+    """Find all metrics files in run_* directories.
+    
+    Args:
+        base_path: Path to sweep_results directory
+        metrics_filename: Name of the metrics file to look for
+        dir_suffix: Optional suffix to filter directories (e.g., '_base')
+    """
     metrics_files = []
     
     for item in sorted(base_path.iterdir()):
         if item.is_dir() and item.name.startswith("run_"):
-            metrics_path = item / "metrics.csv"
+            # Filter by directory suffix if specified
+            if dir_suffix and not item.name.endswith(dir_suffix):
+                continue
+            metrics_path = item / metrics_filename
             if metrics_path.exists():
                 metrics_files.append((item.name, metrics_path))
     
@@ -29,19 +42,23 @@ def merge_metrics(
     base_path: Path,
     output_file: Path,
     add_run_column: bool = False,
+    metrics_filename: str = "metrics.csv",
+    dir_suffix: str | None = None,
 ) -> int:
     """
-    Merge all metrics.csv files from run directories.
+    Merge all metrics files from run directories.
     
     Args:
         base_path: Path to sweep_results directory
         output_file: Path to save the merged CSV
         add_run_column: Whether to add a column identifying the source run
+        metrics_filename: Name of the metrics file to look for
+        dir_suffix: Optional suffix to filter directories (e.g., '_base')
         
     Returns:
         Total number of data rows merged
     """
-    metrics_files = find_metrics_files(base_path)
+    metrics_files = find_metrics_files(base_path, metrics_filename, dir_suffix)
     
     if not metrics_files:
         print(f"No metrics.csv files found in run_* directories under {base_path}")
@@ -106,7 +123,7 @@ def merge_metrics(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Merge all metrics.csv files from run directories"
+        description="Merge all metrics files from run directories"
     )
     parser.add_argument(
         "--base-path",
@@ -126,6 +143,18 @@ def main():
         action="store_true",
         help="Add a column to identify the source run",
     )
+    parser.add_argument(
+        "--metrics-filename",
+        type=str,
+        default="metrics.csv",
+        help="Name of the metrics file to merge (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--dir-suffix",
+        type=str,
+        default=None,
+        help="Only include run directories ending with this suffix (e.g., '_base')",
+    )
     
     args = parser.parse_args()
     
@@ -139,6 +168,8 @@ def main():
         base_path=args.base_path,
         output_file=output_file,
         add_run_column=args.add_run_column,
+        metrics_filename=args.metrics_filename,
+        dir_suffix=args.dir_suffix,
     )
 
 
