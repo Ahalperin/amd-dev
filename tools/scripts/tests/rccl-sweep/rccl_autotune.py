@@ -44,11 +44,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Basic usage with NCCL defaults
+  # Basic usage with NCCL defaults (logarithmic size progression)
   %(prog)s -n 1-2 -c 32:256:32
 
   # Sweep specific collectives
   %(prog)s -n 1-2 -c 32:64:8 --collective all_reduce,all_gather
+
+  # With fixed step size for fine-grained small message sweeps
+  %(prog)s -n 1-2 -c 32:64:8 --min-size 4K --max-size 256M --step-size 4K
 
   # With hotspot refinement
   %(prog)s -n 1-4 -c 4:64:4 --max-iterations 3 --hotspot-threshold 0.10
@@ -117,6 +120,12 @@ Examples:
         default='512M',
         metavar='SIZE',
         help='Maximum message size (default: 512M)'
+    )
+    sweep_group.add_argument(
+        '--step-size',
+        metavar='SIZE',
+        help='Fixed step size for message sizes (e.g., 1M, 4K). '
+             'If not set, uses doubling factor (logarithmic progression)'
     )
     sweep_group.add_argument(
         '--servers', '-s',
@@ -225,6 +234,7 @@ Examples:
             protos=protos,
             min_size=args.min_size,
             max_size=args.max_size,
+            step_size=args.step_size,
             hotspot_threshold=args.hotspot_threshold,
             hotspot_min_drop_gbps=args.min_drop_gbps,
             max_iterations=args.max_iterations,

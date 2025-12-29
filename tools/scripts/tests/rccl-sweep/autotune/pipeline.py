@@ -40,6 +40,7 @@ class PipelineConfig:
     protos: List[str] = field(default_factory=lambda: ['SIMPLE'])
     min_size: str = "1M"
     max_size: str = "512M"
+    step_size: Optional[str] = None  # If set, use fixed step instead of doubling factor
     
     # Hotspot detection settings
     hotspot_threshold: float = 0.10
@@ -353,6 +354,10 @@ class AutoTunePipeline:
                     '--max-size', self.config.max_size,
                 ]
                 
+                # Add step-size if specified (uses fixed step instead of doubling)
+                if self.config.step_size:
+                    cmd.extend(['--step-size', self.config.step_size])
+                
                 self._run_sweep_command(cmd)
     
     def _run_targeted_sweeps(self, configs: List[SweepConfig]) -> None:
@@ -589,6 +594,8 @@ def load_config_yaml(config_path: Path) -> PipelineConfig:
             config.min_size = str(sweep['min_size'])
         if 'max_size' in sweep:
             config.max_size = str(sweep['max_size'])
+        if 'step_size' in sweep:
+            config.step_size = str(sweep['step_size'])
     
     if 'hotspot' in data:
         hotspot = data['hotspot']
