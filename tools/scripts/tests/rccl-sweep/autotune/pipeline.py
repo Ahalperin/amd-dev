@@ -24,6 +24,7 @@ import shutil
 from .hotspot_analyzer import HotspotAnalyzer, Hotspot
 from .sweep_planner import SweepPlanner, SweepConfig
 from .config_generator import TunerConfigGenerator
+from .combo_validator import ComboValidator
 
 
 @dataclass
@@ -61,6 +62,9 @@ class PipelineConfig:
     optimize_script: str = "./optimize_metrics.py"
     filter_script: str = "./filter_metrics.py"
     servers_file: str = "./servers.txt"
+    
+    # Unsupported combinations config
+    combos_config: Optional[Path] = None  # Path to unsupported_combos.yaml
 
 
 @dataclass
@@ -111,10 +115,12 @@ class AutoTunePipeline:
         )
         self.sweep_planner = SweepPlanner()
         self.config_generator = TunerConfigGenerator(merge_ranges=True)
+        self.combo_validator = ComboValidator(self.config.combos_config)
         
         # Track state
         self.iteration = 0
         self.total_sweeps = 0
+        self.skipped_sweeps = 0
         self.hotspots_detected = 0
         
         # Track already-targeted hotspots to avoid repeating same sweeps
@@ -133,6 +139,29 @@ class AutoTunePipeline:
             start, end = nodes_str.split('-', 1)
             return set(range(int(start), int(end) + 1))
         return {int(nodes_str)}
+    
+    def _parse_channels(self, channels_str: str) -> List[int]:
+        """Parse channels specification to list of channel values."""
+        if ',' in channels_str:
+            # Explicit list format: "1,5,16,32,64,128"
+            return [int(v.strip()) for v in channels_str.split(',')]
+        elif ':' in channels_str:
+            # Range format: "MIN:MAX:STEP"
+            parts = channels_str.split(':')
+            if len(parts) == 3:
+                start, end, step = int(parts[0]), int(parts[1]), int(parts[2])
+                return list(range(start, end + 1, step))
+            elif len(parts) == 2:
+                start, end = int(parts[0]), int(parts[1])
+                return list(range(start, end + 1))
+        # Single value
+        return [int(channels_str)]
+    
+    def _format_channels_for_display(self, channels: List[int]) -> str:
+        """Format channel list for display (show range or first few values)."""
+        if len(channels) <= 3:
+            return ','.join(str(c) for c in channels)
+        return f"{channels[0]},{channels[1]},...,{channels[-1]}"
     
     def _normalize_collectives(self, collectives: List[str]) -> set:
         """Normalize collective names to match metrics format (with _perf suffix)."""
@@ -308,7 +337,8 @@ class AutoTunePipeline:
             self._log("  Pipeline Complete!")
             self._log("=" * 60)
             self._log(f"Iterations: {self.iteration}")
-            self._log(f"Total sweeps: {self.total_sweeps}")
+            self._log(f"Total sweeps executed: {self.total_sweeps}")
+            self._log(f"Sweeps skipped (unsupported): {self.skipped_sweeps}")
             self._log(f"Hotspots detected: {self.hotspots_detected}")
             self._log(f"Hotspots remaining: {len(remaining_hotspots)}")
             self._log(f"Duration: {duration:.1f}s")
@@ -342,50 +372,98 @@ class AutoTunePipeline:
             )
     
     def _run_initial_sweeps(self) -> None:
-        """Run initial broad sweeps."""
-        # If step_ranges is set, run multiple sweeps per range
+        """Run initial broad sweeps with detailed output for each combination."""
+        # Parse configuration
+        node_counts = sorted(self._node_range)
+        channels = self._parse_channels(self.config.channels)
+        channels_display = self._format_channels_for_display(channels)
+        
+        # Determine size ranges to sweep
         if self.config.step_ranges:
-            self._log(f"  Using {len(self.config.step_ranges)} step ranges:")
-            for min_size, max_size, step_size in self.config.step_ranges:
-                self._log(f"    {min_size} -> {max_size} (step: {step_size})")
-            
-            for collective in self.config.collectives:
-                for algo in self.config.algos:
-                    for min_size, max_size, step_size in self.config.step_ranges:
-                        cmd = [
-                            sys.executable, self.config.sweep_script,
-                            '--servers', self.config.servers_file,
-                            '--nodes', self.config.nodes,
-                            '--collective', collective,
-                            '--channels', self.config.channels,
-                            '--algo', algo,
-                            '--proto', ','.join(self.config.protos),
-                            '--min-size', min_size,
-                            '--max-size', max_size,
-                            '--step-size', step_size,
-                        ]
-                        self._run_sweep_command(cmd)
+            size_ranges = self.config.step_ranges
+            self._log(f"  Step ranges: {len(size_ranges)}")
+            for min_s, max_s, step_s in size_ranges:
+                self._log(f"    {min_s} -> {max_s} (step: {step_s})")
         else:
-            # Single sweep with min/max/step_size (original behavior)
-            for collective in self.config.collectives:
-                for algo in self.config.algos:
-                    cmd = [
-                        sys.executable, self.config.sweep_script,
-                        '--servers', self.config.servers_file,
-                        '--nodes', self.config.nodes,
-                        '--collective', collective,
-                        '--channels', self.config.channels,
-                        '--algo', algo,
-                        '--proto', ','.join(self.config.protos),
-                        '--min-size', self.config.min_size,
-                        '--max-size', self.config.max_size,
-                    ]
-                    
-                    # Add step-size if specified (uses fixed step instead of doubling)
-                    if self.config.step_size:
-                        cmd.extend(['--step-size', self.config.step_size])
-                    
-                    self._run_sweep_command(cmd)
+            # Single range
+            size_ranges = [(self.config.min_size, self.config.max_size, self.config.step_size)]
+            if self.config.step_size:
+                self._log(f"  Size range: {self.config.min_size} -> {self.config.max_size} (step: {self.config.step_size})")
+            else:
+                self._log(f"  Size range: {self.config.min_size} -> {self.config.max_size} (log scale)")
+        
+        self._log(f"  Channels: {channels_display}")
+        self._log("")
+        
+        # Build list of all sweep configurations
+        # We'll run one sweep per (collective, algo, proto, num_nodes, size_range) tuple
+        sweep_configs = []
+        for collective in self.config.collectives:
+            for algo in self.config.algos:
+                for proto in self.config.protos:
+                    for num_nodes in node_counts:
+                        for min_size, max_size, step_size in size_ranges:
+                            sweep_configs.append({
+                                'collective': collective,
+                                'algo': algo,
+                                'proto': proto,
+                                'num_nodes': num_nodes,
+                                'min_size': min_size,
+                                'max_size': max_size,
+                                'step_size': step_size,
+                            })
+        
+        total_configs = len(sweep_configs)
+        self._log(f"  Total configurations: {total_configs}")
+        self._log("")
+        
+        # Process each configuration
+        for idx, cfg in enumerate(sweep_configs, 1):
+            collective = cfg['collective']
+            algo = cfg['algo']
+            proto = cfg['proto']
+            num_nodes = cfg['num_nodes']
+            min_size = cfg['min_size']
+            max_size = cfg['max_size']
+            step_size = cfg['step_size']
+            
+            # Format display name
+            coll_display = collective.replace('_perf', '')
+            node_str = f"{num_nodes} node" if num_nodes == 1 else f"{num_nodes} nodes"
+            size_str = f"{min_size}-{max_size}"
+            
+            # Check if combination is supported
+            is_valid, skip_reason = self.combo_validator.is_supported(
+                collective, algo, proto, num_nodes
+            )
+            
+            status_prefix = f"  [{idx}/{total_configs}]"
+            config_str = f"{coll_display} | {node_str} | {algo} | {proto} | ch={channels_display} | {size_str}"
+            
+            if not is_valid:
+                self._log(f"{status_prefix} {config_str}")
+                self._log(f"           SKIPPED: {skip_reason}")
+                self.skipped_sweeps += 1
+                continue
+            
+            # Build and run sweep command
+            cmd = [
+                sys.executable, self.config.sweep_script,
+                '--servers', self.config.servers_file,
+                '--nodes', str(num_nodes),
+                '--collective', collective,
+                '--channels', self.config.channels,
+                '--algo', algo,
+                '--proto', proto,
+                '--min-size', min_size,
+                '--max-size', max_size,
+            ]
+            
+            if step_size:
+                cmd.extend(['--step-size', step_size])
+            
+            self._log(f"{status_prefix} {config_str}")
+            self._run_sweep_command(cmd, show_command=True)
     
     def _run_targeted_sweeps(self, configs: List[SweepConfig]) -> None:
         """Run targeted sweeps based on hotspot analysis."""
@@ -396,16 +474,19 @@ class AutoTunePipeline:
             
             self._run_sweep_command(cmd)
     
-    def _run_sweep_command(self, cmd: List[str]) -> None:
+    def _run_sweep_command(self, cmd: List[str], show_command: bool = False) -> None:
         """Execute a sweep command."""
         cmd_str = ' '.join(cmd)
         self.total_sweeps += 1
         
         if self.dry_run:
-            self._log(f"  [DRY RUN] {cmd_str}")
+            self._log(f"           [DRY RUN] Would run sweep")
             return
         
-        self._log(f"  Running: {cmd_str}")
+        if show_command:
+            self._log(f"           Running sweep...")
+        else:
+            self._log(f"  Running: {cmd_str}")
         
         try:
             result = subprocess.run(
@@ -416,12 +497,12 @@ class AutoTunePipeline:
             )
             
             if result.returncode != 0:
-                self._log(f"    Warning: Sweep returned {result.returncode}")
+                self._log(f"           Warning: Sweep returned {result.returncode}")
                 if result.stderr:
-                    self._log(f"    stderr: {result.stderr[:200]}")
+                    self._log(f"           stderr: {result.stderr[:200]}")
                     
         except Exception as e:
-            self._log(f"    Error running sweep: {e}")
+            self._log(f"           Error running sweep: {e}")
     
     def _filter_error_entries(self) -> int:
         """
@@ -652,6 +733,10 @@ def load_config_yaml(config_path: Path) -> PipelineConfig:
             config.tuner_output = Path(output['tuner_conf'])
         if 'report_csv' in output:
             config.report_output = Path(output['report_csv'])
+    
+    # Unsupported combinations config
+    if 'combos_config' in data:
+        config.combos_config = Path(data['combos_config'])
     
     return config
 

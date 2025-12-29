@@ -5,12 +5,14 @@ Provides automated RCCL performance tuning through:
 - Pipeline orchestration
 - Hotspot analysis and targeted sweep planning
 - Tuner configuration generation
+- Unsupported combination validation
 """
 
 from .pipeline import AutoTunePipeline
 from .config_generator import TunerConfigGenerator
 from .hotspot_analyzer import HotspotAnalyzer, Hotspot
 from .sweep_planner import SweepPlanner, SweepConfig
+from .combo_validator import ComboValidator
 
 __all__ = [
     'AutoTunePipeline',
@@ -19,6 +21,7 @@ __all__ = [
     'Hotspot',
     'SweepPlanner',
     'SweepConfig',
+    'ComboValidator',
 ]
 
 __version__ = '0.1.0'

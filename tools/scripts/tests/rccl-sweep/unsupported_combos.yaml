@@ -1,0 +1,62 @@
+# RCCL Unsupported Algo/Proto/Collective Combinations
+# Based on analysis of rccl/src/graph/tuning.cc
+#
+# Rules are checked in order (first match wins). Each rule can specify:
+#   - collective: collective type (all_reduce, all_gather, etc.) or 'any'
+#   - algo: algorithm (RING, TREE) or 'any'
+#   - proto: protocol (SIMPLE, LL, LL128) or 'any'
+#   - max_nodes: maximum node count where this rule applies (e.g., 1 = single-node only)
+#   - min_nodes: minimum node count where this rule applies
+#   - reason: human-readable explanation
+#
+# NOTE: More specific rules (collective-specific) should come BEFORE
+#       more general rules (node-count specific) for better error messages.
+
+unsupported:
+  # ===== Collective-specific rules (most specific - check first) =====
+  
+  # all_gather only supports: RING, PAT, NVLS, COLLNET_DIRECT (not TREE)
+  # From tuning.cc lines 509-511:
+  # if ((coll == ncclFuncReduceScatter || coll == ncclFuncAllGather)
+  #     && a != NCCL_ALGO_PAT && a != NCCL_ALGO_RING
+  #     && a != NCCL_ALGO_NVLS && a != NCCL_ALGO_COLLNET_DIRECT) continue;
+  - collective: all_gather
+    algo: TREE
+    reason: "all_gather does not support Tree algorithm"
+
+  # reduce_scatter only supports: RING, PAT, NVLS, COLLNET_DIRECT (not TREE)
+  # From tuning.cc lines 509-511 (same as above)
+  - collective: reduce_scatter
+    algo: TREE
+    reason: "reduce_scatter does not support Tree algorithm"
+
+  # broadcast only supports RING
+  # From tuning.cc line 508:
+  # if ((coll == ncclFuncBroadcast || coll == ncclFuncReduce) && a != NCCL_ALGO_RING) continue;
+  - collective: broadcast
+    algo: TREE
+    reason: "broadcast only supports Ring algorithm"
+
+  # reduce only supports RING
+  # From tuning.cc line 508 (same as above)
+  - collective: reduce
+    algo: TREE
+    reason: "reduce only supports Ring algorithm"
+
+  # alltoall only supports RING (implicit - Tree not implemented for alltoall)
+  - collective: alltoall
+    algo: TREE
+    reason: "alltoall does not support Tree algorithm"
+
+  # ===== Node-count specific rules (more general - check last) =====
+  
+  # Tree+SIMPLE disabled for single-node on MI300X/MI355X (gfx942/gfx950)
+  # From tuning.cc line 515:
+  # if (a == NCCL_ALGO_TREE && p == NCCL_PROTO_SIMPLE && 
+  #     (IsArchMatch(..., "gfx942") || IsArchMatch(..., "gfx950")) && 
+  #     comm->topo->nodes[GPU].count == comm->topo->nRanks) continue;
+  - algo: TREE
+    proto: SIMPLE
+    max_nodes: 1
+    reason: "Tree+SIMPLE disabled for single-node on MI300X/MI355X (gfx942/gfx950)"
+

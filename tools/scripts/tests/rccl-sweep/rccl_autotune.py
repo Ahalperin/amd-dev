@@ -230,6 +230,12 @@ Examples:
         help='Show commands without executing sweeps'
     )
     exec_group.add_argument(
+        '--combos-config',
+        type=Path,
+        metavar='FILE',
+        help='Path to unsupported_combos.yaml (default: auto-detect in script directory)'
+    )
+    exec_group.add_argument(
         '--verbose', '-v',
         action='store_true',
         help='Verbose output (default)'
@@ -298,6 +304,7 @@ Examples:
             tuner_output=args.tuner_output,
             report_output=args.report_output,
             servers_file=args.servers,
+            combos_config=args.combos_config,
         )
     
     # Create and run pipeline
