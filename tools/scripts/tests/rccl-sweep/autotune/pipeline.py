@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import shutil
 
 from .hotspot_analyzer import HotspotAnalyzer, Hotspot
@@ -41,6 +41,7 @@ class PipelineConfig:
     min_size: str = "1M"
     max_size: str = "512M"
     step_size: Optional[str] = None  # If set, use fixed step instead of doubling factor
+    step_ranges: Optional[List[Tuple[str, str, str]]] = None  # [(min, max, step), ...] - overrides min/max/step_size
     
     # Hotspot detection settings
     hotspot_threshold: float = 0.10
@@ -124,6 +125,7 @@ class AutoTunePipeline:
         self._node_range = self._parse_node_range(self.config.nodes)
         self._collective_set = self._normalize_collectives(self.config.collectives)
         self._algo_set = set(a.upper() for a in self.config.algos)
+        self._proto_list = [p.upper() for p in self.config.protos]
     
     def _parse_node_range(self, nodes_str: str) -> set:
         """Parse node range string to set of valid node counts."""
@@ -266,11 +268,12 @@ class AutoTunePipeline:
                 # Mark these hotspots as targeted so we don't repeat them
                 self._mark_hotspots_targeted(priority_hotspots)
                 
-                # Plan targeted sweeps - only include alternatives from our algo set
+                # Plan targeted sweeps - only include alternatives from our algo/proto sets
                 targeted_configs = self.sweep_planner.plan_from_hotspots(
                     priority_hotspots,
                     include_alternatives=True,
                     allowed_algos=self._algo_set,
+                    allowed_protos=self._proto_list,
                 )
                 
                 if not targeted_configs:
@@ -340,25 +343,49 @@ class AutoTunePipeline:
     
     def _run_initial_sweeps(self) -> None:
         """Run initial broad sweeps."""
-        for collective in self.config.collectives:
-            for algo in self.config.algos:
-                cmd = [
-                    sys.executable, self.config.sweep_script,
-                    '--servers', self.config.servers_file,
-                    '--nodes', self.config.nodes,
-                    '--collective', collective,
-                    '--channels', self.config.channels,
-                    '--algo', algo,
-                    '--proto', ','.join(self.config.protos),
-                    '--min-size', self.config.min_size,
-                    '--max-size', self.config.max_size,
-                ]
-                
-                # Add step-size if specified (uses fixed step instead of doubling)
-                if self.config.step_size:
-                    cmd.extend(['--step-size', self.config.step_size])
-                
-                self._run_sweep_command(cmd)
+        # If step_ranges is set, run multiple sweeps per range
+        if self.config.step_ranges:
+            self._log(f"  Using {len(self.config.step_ranges)} step ranges:")
+            for min_size, max_size, step_size in self.config.step_ranges:
+                self._log(f"    {min_size} -> {max_size} (step: {step_size})")
+            
+            for collective in self.config.collectives:
+                for algo in self.config.algos:
+                    for min_size, max_size, step_size in self.config.step_ranges:
+                        cmd = [
+                            sys.executable, self.config.sweep_script,
+                            '--servers', self.config.servers_file,
+                            '--nodes', self.config.nodes,
+                            '--collective', collective,
+                            '--channels', self.config.channels,
+                            '--algo', algo,
+                            '--proto', ','.join(self.config.protos),
+                            '--min-size', min_size,
+                            '--max-size', max_size,
+                            '--step-size', step_size,
+                        ]
+                        self._run_sweep_command(cmd)
+        else:
+            # Single sweep with min/max/step_size (original behavior)
+            for collective in self.config.collectives:
+                for algo in self.config.algos:
+                    cmd = [
+                        sys.executable, self.config.sweep_script,
+                        '--servers', self.config.servers_file,
+                        '--nodes', self.config.nodes,
+                        '--collective', collective,
+                        '--channels', self.config.channels,
+                        '--algo', algo,
+                        '--proto', ','.join(self.config.protos),
+                        '--min-size', self.config.min_size,
+                        '--max-size', self.config.max_size,
+                    ]
+                    
+                    # Add step-size if specified (uses fixed step instead of doubling)
+                    if self.config.step_size:
+                        cmd.extend(['--step-size', self.config.step_size])
+                    
+                    self._run_sweep_command(cmd)
     
     def _run_targeted_sweeps(self, configs: List[SweepConfig]) -> None:
         """Run targeted sweeps based on hotspot analysis."""
@@ -596,6 +623,17 @@ def load_config_yaml(config_path: Path) -> PipelineConfig:
             config.max_size = str(sweep['max_size'])
         if 'step_size' in sweep:
             config.step_size = str(sweep['step_size'])
+        if 'step_ranges' in sweep:
+            # Parse step_ranges list: [{min: "4K", max: "1M", step: "4K"}, ...]
+            ranges = []
+            for r in sweep['step_ranges']:
+                min_size = str(r.get('min', r.get('min_size', '')))
+                max_size = str(r.get('max', r.get('max_size', '')))
+                step_size = str(r.get('step', r.get('step_size', '')))
+                if min_size and max_size and step_size:
+                    ranges.append((min_size, max_size, step_size))
+            if ranges:
+                config.step_ranges = ranges
     
     if 'hotspot' in data:
         hotspot = data['hotspot']

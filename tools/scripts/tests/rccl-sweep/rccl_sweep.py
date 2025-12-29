@@ -89,26 +89,56 @@ def parse_channels(channels_str: str) -> List[int]:
     """Parse channels specification string.
     
     Args:
-        channels_str: Format "MIN:MAX:STEP" e.g., "4:64:4"
+        channels_str: Either:
+            - Range format: "MIN:MAX:STEP" (e.g., "4:64:4")
+            - List format: "V1,V2,V3,..." (e.g., "1,5,16,32,64,128")
+            - Single value: "32"
         
     Returns:
         List of channel values
     """
-    parts = channels_str.split(':')
-    if len(parts) != 3:
-        raise ValueError(f"Invalid channels format '{channels_str}'. Use MIN:MAX:STEP (e.g., 4:64:4)")
+    # Check for comma-separated list format
+    if ',' in channels_str:
+        try:
+            channels = [int(v.strip()) for v in channels_str.split(',')]
+        except ValueError:
+            raise ValueError(f"Invalid channels list '{channels_str}'. Values must be integers.")
+        
+        # Validate values
+        for ch in channels:
+            if ch < 1:
+                raise ValueError(f"Invalid channel value: {ch}. Must be >= 1")
+        
+        return sorted(channels)
     
+    # Check for range format (contains :)
+    if ':' in channels_str:
+        parts = channels_str.split(':')
+        if len(parts) != 3:
+            raise ValueError(f"Invalid channels format '{channels_str}'. Use MIN:MAX:STEP (e.g., 4:64:4)")
+        
+        try:
+            min_ch = int(parts[0])
+            max_ch = int(parts[1])
+            step = int(parts[2])
+        except ValueError:
+            raise ValueError(f"Invalid channels format '{channels_str}'. Values must be integers.")
+        
+        if min_ch < 1 or max_ch < min_ch or step < 1:
+            raise ValueError(f"Invalid channel range: min={min_ch}, max={max_ch}, step={step}")
+        
+        return list(range(min_ch, max_ch + 1, step))
+    
+    # Single value
     try:
-        min_ch = int(parts[0])
-        max_ch = int(parts[1])
-        step = int(parts[2])
+        ch = int(channels_str.strip())
     except ValueError:
-        raise ValueError(f"Invalid channels format '{channels_str}'. Values must be integers.")
+        raise ValueError(f"Invalid channels format '{channels_str}'. Use MIN:MAX:STEP, comma-separated list, or single value.")
     
-    if min_ch < 1 or max_ch < min_ch or step < 1:
-        raise ValueError(f"Invalid channel range: min={min_ch}, max={max_ch}, step={step}")
+    if ch < 1:
+        raise ValueError(f"Invalid channel value: {ch}. Must be >= 1")
     
-    return list(range(min_ch, max_ch + 1, step))
+    return [ch]
 
 
 # Algorithm and protocol mappings
@@ -547,6 +577,9 @@ Examples:
   # Run all collectives, all nodes, channel sweep 4-64 step 4
   %(prog)s --channels 4:64:4
 
+  # Run with explicit channel values
+  %(prog)s --channels 1,5,16,32,64,128
+
   # Run single collective
   %(prog)s --collective all_reduce --channels 4:64:4
 
@@ -590,7 +623,7 @@ Examples:
     
     parser.add_argument(
         '--channels', '-c',
-        help='Channel range as MIN:MAX:STEP (e.g., 4:64:4). If not provided, uses NCCL defaults'
+        help='Channels: range MIN:MAX:STEP (e.g., 4:64:4) or list V1,V2,... (e.g., 1,5,16,32,64,128). If not provided, uses NCCL defaults'
     )
     
     parser.add_argument(

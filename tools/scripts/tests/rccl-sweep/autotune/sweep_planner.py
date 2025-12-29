@@ -95,6 +95,7 @@ class SweepPlanner:
         hotspots: List[Hotspot],
         include_alternatives: bool = True,
         allowed_algos: Optional[set] = None,
+        allowed_protos: Optional[List[str]] = None,
     ) -> List[SweepConfig]:
         """
         Generate sweep configurations from hotspots.
@@ -103,10 +104,13 @@ class SweepPlanner:
             hotspots: List of detected hotspots
             include_alternatives: If True, include alternative algorithm sweeps
             allowed_algos: If provided, only use algorithms from this set
+            allowed_protos: If provided, use these protocols (default: ['SIMPLE'])
             
         Returns:
             List of sweep configurations
         """
+        # Default to SIMPLE if not specified
+        protos_to_use = allowed_protos if allowed_protos else ['SIMPLE']
         configs = []
         
         # Group hotspots by (collective, nodes) to consolidate ranges
@@ -153,7 +157,7 @@ class SweepPlanner:
                     max_size=self._format_bytes(end_bytes),
                     channels=channel_range,
                     algos=[algo_to_use] if algo_to_use else [],
-                    protos=['SIMPLE'],
+                    protos=protos_to_use,
                     step_size=step_size,
                 )
                 configs.append(config)
@@ -172,7 +176,7 @@ class SweepPlanner:
                             max_size=self._format_bytes(end_bytes),
                             channels=channel_range,
                             algos=[alt_algo],
-                            protos=['SIMPLE'],
+                            protos=protos_to_use,
                             step_size=step_size,
                         )
                         configs.append(alt_config)

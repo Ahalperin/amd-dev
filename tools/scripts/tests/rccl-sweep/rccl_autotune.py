@@ -37,6 +37,36 @@ from autotune import AutoTunePipeline
 from autotune.pipeline import PipelineConfig, load_config_yaml
 
 
+def parse_step_ranges(ranges_str: str) -> list:
+    """
+    Parse step ranges string into list of (min_size, max_size, step_size) tuples.
+    
+    Format: "START:END:STEP,START:END:STEP,..."
+    Example: "4K:1M:4K,1M:64M:256K,64M:512M:4M"
+    
+    Returns:
+        List of tuples: [(min_size, max_size, step_size), ...]
+    """
+    ranges = []
+    for part in ranges_str.split(','):
+        part = part.strip()
+        if not part:
+            continue
+        components = part.split(':')
+        if len(components) != 3:
+            raise ValueError(
+                f"Invalid step range format '{part}'. "
+                f"Expected START:END:STEP (e.g., '4K:1M:4K')"
+            )
+        min_size, max_size, step_size = [c.strip() for c in components]
+        ranges.append((min_size, max_size, step_size))
+    
+    if not ranges:
+        raise ValueError("No valid step ranges found")
+    
+    return ranges
+
+
 def main():
     """Main entry point for the RCCL auto-tuner."""
     parser = argparse.ArgumentParser(
@@ -50,8 +80,14 @@ Examples:
   # Sweep specific collectives
   %(prog)s -n 1-2 -c 32:64:8 --collective all_reduce,all_gather
 
+  # Sweep explicit channel values
+  %(prog)s -n 1-2 -c 1,5,16,32,64,128 --collective all_reduce
+
   # With fixed step size for fine-grained small message sweeps
   %(prog)s -n 1-2 -c 32:64:8 --min-size 4K --max-size 256M --step-size 4K
+
+  # With adaptive step ranges for efficient wide-range sweeps
+  %(prog)s -n 1-2 -c 32:64:8 --step-ranges "4K:1M:4K,1M:64M:256K,64M:512M:4M"
 
   # With hotspot refinement
   %(prog)s -n 1-4 -c 4:64:4 --max-iterations 3 --hotspot-threshold 0.10
@@ -88,8 +124,8 @@ Examples:
     sweep_group.add_argument(
         '--channels', '-c',
         default='32:256:32',
-        metavar='START:END:STEP',
-        help='Channel sweep range (default: 32:256:32)'
+        metavar='RANGE|LIST',
+        help='Channel sweep: range START:END:STEP (e.g., 32:256:32) or list V1,V2,... (e.g., 1,5,16,32,64,128). Default: 32:256:32'
     )
     sweep_group.add_argument(
         '--collective',
@@ -126,6 +162,12 @@ Examples:
         metavar='SIZE',
         help='Fixed step size for message sizes (e.g., 1M, 4K). '
              'If not set, uses doubling factor (logarithmic progression)'
+    )
+    sweep_group.add_argument(
+        '--step-ranges',
+        metavar='RANGES',
+        help='Size-based step ranges: START:END:STEP,... (e.g., "4K:1M:4K,1M:64M:256K,64M:512M:4M"). '
+             'When specified, --min-size, --max-size, and --step-size are ignored.'
     )
     sweep_group.add_argument(
         '--servers', '-s',
@@ -225,6 +267,20 @@ Examples:
         # Parse protocols
         protos = [p.strip().upper() for p in args.proto.split(',')]
         
+        # Parse step ranges if provided
+        step_ranges = None
+        if args.step_ranges:
+            try:
+                step_ranges = parse_step_ranges(args.step_ranges)
+            except ValueError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+            
+            # Warn if min-size/max-size/step-size are also provided
+            if args.min_size != '1M' or args.max_size != '512M' or args.step_size:
+                print("Warning: --min-size, --max-size, and --step-size are ignored when --step-ranges is specified",
+                      file=sys.stderr)
+        
         config = PipelineConfig(
             output_dir=Path(args.output_dir),
             nodes=args.nodes,
@@ -235,6 +291,7 @@ Examples:
             min_size=args.min_size,
             max_size=args.max_size,
             step_size=args.step_size,
+            step_ranges=step_ranges,
             hotspot_threshold=args.hotspot_threshold,
             hotspot_min_drop_gbps=args.min_drop_gbps,
             max_iterations=args.max_iterations,
