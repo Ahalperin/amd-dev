@@ -18,6 +18,7 @@ LOG_DIR="${DN_DIR}/build"
 ENABLE_LOGGING=true
 RCCL_DISABLE_MSCCL_FLAGS=""
 SKIP_REPO_CHECK=false
+ROCM_VER="7.0.1"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -56,6 +57,11 @@ while [[ $# -gt 0 ]]; do
             echo "Skipping repository checkout checks"
             shift
             ;;
+        --rocm-ver)
+            ROCM_VER="$2"
+            echo "ROCm version set to: $ROCM_VER"
+            shift 2
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
@@ -66,6 +72,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --no-log               Disable logging to file"
             echo "  --rccl-disable-msccl   Disable MSCCL++ and MSCCL kernel in RCCL build"
             echo "  --skip-repo-check      Skip git checkout/fetch operations on repositories"
+            echo "  --rocm-ver VERSION     Specify ROCm version to use (default: 7.0.1)"
+            echo "                         Path will be set to /opt/rocm-VERSION/"
             echo "  -h, --help             Show this help message"
             exit 0
             ;;
@@ -119,11 +127,20 @@ if [ "$ENABLE_LOGGING" = true ]; then
     echo "============================================"
 fi
 
+# Construct ROCm path from version and validate
+ROCM_PATH_DIR="/opt/rocm-${ROCM_VER}/"
+if [ ! -d "${ROCM_PATH_DIR}" ]; then
+    echo "ERROR: ROCm path does not exist: ${ROCM_PATH_DIR}"
+    echo "Please verify that ROCm ${ROCM_VER} is installed or specify a different version with --rocm-ver"
+    exit 1
+fi
+
 echo "============================================"
 echo "Starting RCCL build process"
 echo "============================================"
 echo "RCCL Branch: ${RCCL_BRANCH}"
 echo "AMD-ANP Branch: ${AMD_ANP_BRANCH}"
+echo "ROCm Version: ${ROCM_VER} (${ROCM_PATH_DIR})"
 echo "NPKit: ${NPKIT_FLAG:-disabled}"
 echo "MSCCL: $([ -n \"${RCCL_DISABLE_MSCCL_FLAGS}\" ] && echo 'disabled' || echo 'enabled')"
 echo "Skip Repo Check: $([ \"${SKIP_REPO_CHECK}\" = true ] && echo 'yes' || echo 'no')"
@@ -135,7 +152,8 @@ export OMPI_HOME=/opt/ompi-4.1.6/
 export OMPI_LIB_PATH=/opt/ompi-4.1.6/lib/
 export RCCL_HOME=${DN_DIR}/rccl/
 export RCCL_INSTALL_DIR=${RCCL_HOME}/build/release/
-export ROCM_HOME=/opt/rocm-7.0.1/
+export ROCM_HOME=${ROCM_PATH_DIR}
+export ROCM_PATH=${ROCM_PATH_DIR}
 
 # checkout git rccl to specified branch/tag
 cd ${DN_DIR}/rccl/
