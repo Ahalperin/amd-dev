@@ -402,7 +402,8 @@ def run_sweep(args, config: Dict[str, Any]):
     
     # Set up output directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path(config.get('output', {}).get('results_dir', 'sweep_results')) / f"run_{timestamp}"
+    base_output_dir = args.output_dir or config.get('output', {}).get('results_dir', 'sweep_results')
+    output_dir = Path(base_output_dir) / f"run_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Initialize executor with real output dir
@@ -669,6 +670,11 @@ Examples:
         '--step-size',
         help='Override step factor with fixed step size (e.g., 1M, 4K, 100000). '
              'Uses -i instead of default -f 2'
+    )
+    
+    parser.add_argument(
+        '--output-dir', '-o',
+        help='Output directory for results (default: from config or sweep_results)'
     )
     
     parser.add_argument(

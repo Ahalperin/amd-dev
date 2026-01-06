@@ -104,6 +104,20 @@ class AutoTunePipeline:
         self.verbose = verbose
         self.dry_run = dry_run
         
+        # Determine script directory (where rccl_sweep.py and other tools live)
+        # pipeline.py is in autotune/, so parent.parent gets us to the rccl-sweep directory
+        self.script_dir = Path(__file__).resolve().parent.parent
+        
+        # Resolve tool script paths to absolute paths
+        self.config.sweep_script = str(self.script_dir / self.config.sweep_script.lstrip('./'))
+        self.config.merge_script = str(self.script_dir / self.config.merge_script.lstrip('./'))
+        self.config.optimize_script = str(self.script_dir / self.config.optimize_script.lstrip('./'))
+        self.config.filter_script = str(self.script_dir / self.config.filter_script.lstrip('./'))
+        
+        # Resolve servers file path if it's relative and starts with ./
+        if self.config.servers_file.startswith('./'):
+            self.config.servers_file = str(self.script_dir / self.config.servers_file.lstrip('./'))
+        
         # Ensure output directory exists
         self.config.output_dir = Path(self.config.output_dir)
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
@@ -447,9 +461,11 @@ class AutoTunePipeline:
                 continue
             
             # Build and run sweep command
+            # Use absolute path for output_dir to avoid issues with subprocess cwd
             cmd = [
                 sys.executable, self.config.sweep_script,
                 '--servers', self.config.servers_file,
+                '--output-dir', str(self.config.output_dir.resolve()),
                 '--nodes', str(num_nodes),
                 '--collective', collective,
                 '--channels', self.config.channels,
@@ -470,6 +486,7 @@ class AutoTunePipeline:
         for config in configs:
             cmd = [sys.executable, self.config.sweep_script]
             cmd.extend(['--servers', self.config.servers_file])
+            cmd.extend(['--output-dir', str(self.config.output_dir.resolve())])
             cmd.extend(config.to_command_args())
             
             self._run_sweep_command(cmd)
