@@ -268,77 +268,78 @@ class AutoTunePipeline:
             optimized_path = self._optimize_metrics()
             
             # Hotspot refinement loop
-            # In dry-run mode, only show one iteration since data doesn't change
-            max_iter = 1 if self.dry_run else self.config.max_iterations
             remaining_hotspots = []
             
-            for self.iteration in range(1, max_iter + 1):
-                self._log(f"\nPhase 3.{self.iteration}: Hotspot detection (iteration {self.iteration})...")
-                
-                all_hotspots = self.hotspot_analyzer.analyze(optimized_path)
-                
-                # Filter hotspots to only those matching initial constraints
-                hotspots = self._filter_hotspots_by_constraints(all_hotspots)
-                
-                # Filter out hotspots that have already been targeted (avoid repeating same sweeps)
-                new_hotspots = self._filter_already_targeted(hotspots)
-                already_targeted_count = len(hotspots) - len(new_hotspots)
-                
-                self.hotspots_detected += len(new_hotspots)
-                
-                if not new_hotspots:
+            # In dry-run mode, skip phases that require actual data
+            if self.dry_run:
+                self._log("\nPhase 3: Hotspot detection...")
+                self._log("  [DRY RUN] Skipped - no data to analyze")
+                self._log(f"  [DRY RUN] Would run up to {self.config.max_iterations} refinement iterations")
+                self.iteration = 0
+            else:
+                for self.iteration in range(1, self.config.max_iterations + 1):
+                    self._log(f"\nPhase 3.{self.iteration}: Hotspot detection (iteration {self.iteration})...")
+                    
+                    all_hotspots = self.hotspot_analyzer.analyze(optimized_path)
+                    
+                    # Filter hotspots to only those matching initial constraints
+                    hotspots = self._filter_hotspots_by_constraints(all_hotspots)
+                    
+                    # Filter out hotspots that have already been targeted (avoid repeating same sweeps)
+                    new_hotspots = self._filter_already_targeted(hotspots)
+                    already_targeted_count = len(hotspots) - len(new_hotspots)
+                    
+                    self.hotspots_detected += len(new_hotspots)
+                    
+                    if not new_hotspots:
+                        if already_targeted_count > 0:
+                            self._log(f"  All {already_targeted_count} hotspots have already been targeted - stopping refinement")
+                            self._log(f"  (These hotspots may require manual tuning or different parameters)")
+                        elif all_hotspots:
+                            self._log("  No hotspots detected within constraints - optimization complete!")
+                            self._log(f"  (Filtered out {len(all_hotspots)} hotspots outside node/collective constraints)")
+                        else:
+                            self._log("  No hotspots detected - optimization complete!")
+                        remaining_hotspots = hotspots
+                        break
+                    
+                    self._log(f"  Detected {len(new_hotspots)} new hotspots (within constraints)")
                     if already_targeted_count > 0:
-                        self._log(f"  All {already_targeted_count} hotspots have already been targeted - stopping refinement")
-                        self._log(f"  (These hotspots may require manual tuning or different parameters)")
-                    elif all_hotspots:
-                        self._log("  No hotspots detected within constraints - optimization complete!")
-                        self._log(f"  (Filtered out {len(all_hotspots)} hotspots outside node/collective constraints)")
-                    else:
-                        self._log("  No hotspots detected - optimization complete!")
+                        self._log(f"  (Skipping {already_targeted_count} already-targeted hotspots)")
+                    
+                    # Prioritize and limit hotspots
+                    priority_hotspots = self.hotspot_analyzer.prioritize_hotspots(
+                        new_hotspots,
+                        max_hotspots=self.config.max_hotspots_per_iteration,
+                    )
+                    
+                    # Mark these hotspots as targeted so we don't repeat them
+                    self._mark_hotspots_targeted(priority_hotspots)
+                    
+                    # Plan targeted sweeps - only include alternatives from our algo/proto sets
+                    targeted_configs = self.sweep_planner.plan_from_hotspots(
+                        priority_hotspots,
+                        include_alternatives=True,
+                        allowed_algos=self._algo_set,
+                        allowed_protos=self._proto_list,
+                    )
+                    
+                    if not targeted_configs:
+                        self._log("  No targeted sweeps planned")
+                        remaining_hotspots = hotspots
+                        break
+                    
+                    self._log(f"  Planned {len(targeted_configs)} targeted sweeps")
+                    
+                    # Run targeted sweeps
+                    self._run_targeted_sweeps(targeted_configs)
+                    
+                    # Re-filter, re-merge, and re-optimize
+                    self._filter_error_entries()
+                    self._merge_metrics()
+                    optimized_path = self._optimize_metrics()
+                    
                     remaining_hotspots = hotspots
-                    break
-                
-                self._log(f"  Detected {len(new_hotspots)} new hotspots (within constraints)")
-                if already_targeted_count > 0:
-                    self._log(f"  (Skipping {already_targeted_count} already-targeted hotspots)")
-                
-                # Prioritize and limit hotspots
-                priority_hotspots = self.hotspot_analyzer.prioritize_hotspots(
-                    new_hotspots,
-                    max_hotspots=self.config.max_hotspots_per_iteration,
-                )
-                
-                # Mark these hotspots as targeted so we don't repeat them
-                self._mark_hotspots_targeted(priority_hotspots)
-                
-                # Plan targeted sweeps - only include alternatives from our algo/proto sets
-                targeted_configs = self.sweep_planner.plan_from_hotspots(
-                    priority_hotspots,
-                    include_alternatives=True,
-                    allowed_algos=self._algo_set,
-                    allowed_protos=self._proto_list,
-                )
-                
-                if not targeted_configs:
-                    self._log("  No targeted sweeps planned")
-                    remaining_hotspots = hotspots
-                    break
-                
-                self._log(f"  Planned {len(targeted_configs)} targeted sweeps")
-                
-                # Run targeted sweeps
-                self._run_targeted_sweeps(targeted_configs)
-                
-                # Re-filter, re-merge, and re-optimize
-                self._filter_error_entries()
-                self._merge_metrics()
-                optimized_path = self._optimize_metrics()
-                
-                remaining_hotspots = hotspots
-            
-            # In dry-run, note the iteration limit
-            if self.dry_run and self.config.max_iterations > 1:
-                self._log(f"\n  [DRY RUN] Would continue for up to {self.config.max_iterations} iterations total")
             
             # Generate final outputs
             self._log("\nPhase 4: Generating tuner configuration...")

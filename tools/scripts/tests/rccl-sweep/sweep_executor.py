@@ -138,12 +138,13 @@ class SweepExecutor:
             )
         
         # Set library paths using the single path
-        env_vars['LD_LIBRARY_PATH'] = f"{rccl_path}:/usr/local/lib:"
+        env_vars['LD_LIBRARY_PATH'] = f"/usr/local/lib:{rccl_path}/:/opt/rocm/bin"
         env_vars['LD_PRELOAD'] = f"{rccl_path}/librccl-net.so:{rccl_path}/librccl.so"
         
         # Build base mpirun command
+        mpirun_path = mpi_config.get('mpirun_path', '/opt/ompi-4.1.6/bin/mpirun')
         cmd = [
-            'mpirun',
+            mpirun_path,
             '--np', str(num_gpus),
             '--allow-run-as-root',
             '-H', host_string,
@@ -157,6 +158,9 @@ class SweepExecutor:
             cmd.extend(['--mca', 'oob_tcp_if_include', oob_if])
         if btl_if:
             cmd.extend(['--mca', 'btl_tcp_if_include', btl_if])
+        
+        # Exclude vader and openib btl modules
+        cmd.extend(['--mca', 'btl', '^vader,openib'])
         
         # Add environment variables with -x flag
         for key, value in env_vars.items():
