@@ -905,32 +905,52 @@ class NetworkDiscoveryRunner:
         
         return self.interface_map
     
-    def print_map(self, interface_map: Dict[str, str]):
+    def print_map(self, interface_map: Dict[str, str], output_file=None):
         """
         Print the interface map in a readable format
         
         Args:
             interface_map: Dictionary to print
+            output_file: Optional file handle to write to (default: stdout)
         """
         print("\n" + "=" * 60, file=sys.stderr)
         print("Network Interface Map Complete", file=sys.stderr)
         print("=" * 60, file=sys.stderr)
         print(f"\nTotal interfaces discovered: {len(interface_map)}\n", file=sys.stderr)
         
-        # Print the actual map to stdout
-        print("=" * 80)
-        print("GPU Network Interface Map")
-        print("=" * 80)
-        print(f"{'Server IP:Interface':<40} | {'Interface IP Address':<30}")
-        print("-" * 80)
+        # Determine output destination
+        out = output_file if output_file else sys.stdout
+        
+        # Print the actual map
+        print("=" * 80, file=out)
+        print("GPU Network Interface Map", file=out)
+        print("=" * 80, file=out)
+        print(f"{'Server IP:Interface':<40} | {'Interface IP Address':<30}", file=out)
+        print("-" * 80, file=out)
         
         # Sort by key for better readability
         for key in sorted(interface_map.keys()):
-            print(f"{key:<40} | {interface_map[key]:<30}")
+            print(f"{key:<40} | {interface_map[key]:<30}", file=out)
         
-        print("=" * 80)
-        print(f"\nTotal: {len(interface_map)} interfaces")
-        print("=" * 80)
+        print("=" * 80, file=out)
+        print(f"\nTotal: {len(interface_map)} interfaces", file=out)
+        print("=" * 80, file=out)
+    
+    def save_map(self, interface_map: Dict[str, str], output_path: str):
+        """
+        Save the interface map to a file
+        
+        Args:
+            interface_map: Dictionary to save
+            output_path: Path to output file
+        """
+        try:
+            with open(output_path, 'w') as f:
+                self.print_map(interface_map, output_file=f)
+            print(f"\nInterface map saved to: {output_path}", file=sys.stderr)
+        except Exception as e:
+            print(f"Error saving interface map to {output_path}: {e}", file=sys.stderr)
+            sys.exit(1)
     
     def print_open_metrics_format(self, ping_results: Dict[str, Tuple[str, str]], interface_map: Dict[str, str]):
         """
@@ -1128,6 +1148,9 @@ Example usage:
   # Run discovery only
   %(prog)s servers.list
   
+  # Run discovery and save the interface map to a file
+  %(prog)s servers.list --save-map gpu-interface-map.list
+  
   # Run discovery with custom paths
   %(prog)s -s /path/to/servers.list -d /path/to/net-discovery.sh
   
@@ -1225,6 +1248,13 @@ Example usage:
         help='Output results in OpenMetrics format (for Prometheus/monitoring systems)'
     )
     
+    parser.add_argument(
+        '--save-map',
+        dest='save_map',
+        default=None,
+        help='Save discovered interface map to specified file (default: print to stdout only)'
+    )
+    
     args = parser.parse_args()
     
     # Determine servers list path
@@ -1284,6 +1314,10 @@ Example usage:
         
         # Print interface map
         runner.print_map(interface_map)
+        
+        # Save map to file if requested
+        if args.save_map:
+            runner.save_map(interface_map, args.save_map)
     
     # Run ping tests if requested
     if args.ping_test:
