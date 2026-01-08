@@ -35,8 +35,10 @@ def filter_metrics(input_file: str, count_only: bool = False,
         print("Error: CSV must contain 'errors_oop' and 'errors_ip' columns", file=sys.stderr)
         sys.exit(1)
     
-    # Identify entries with errors (non-zero errors_oop or errors_ip)
-    has_errors = (df['errors_oop'] != 0) | (df['errors_ip'] != 0)
+    # Identify entries with errors (positive errors_oop or errors_ip)
+    # Note: -1 represents N/A (e.g., alltoall doesn't report in-place errors)
+    # so we only consider positive values as actual errors
+    has_errors = (df['errors_oop'] > 0) | (df['errors_ip'] > 0)
     
     df_errors = df[has_errors]
     df_good = df[~has_errors]
