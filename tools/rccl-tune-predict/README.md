@@ -34,7 +34,11 @@ pip install -r requirements.txt
 Train from rccl-sweep results:
 
 ```bash
+# When both tools are in the same parent directory
 python train.py --data ../rccl-sweep/sweep_results/merged_metrics.csv
+
+# Or specify absolute path
+python train.py --data /path/to/sweep_results/merged_metrics.csv
 ```
 
 This creates `models/busbw_model.pkl`.

@@ -18,7 +18,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Train from rccl-sweep results
+  # Train from rccl-sweep results (when both tools are in the same parent directory)
   python train.py --data ../rccl-sweep/sweep_results/merged_metrics.csv
 
   # Train with test split and custom output path

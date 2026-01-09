@@ -14,7 +14,7 @@ A systematic test automation tool for running RCCL collective tests across multi
 ## Installation
 
 ```bash
-cd /home/amir/amd-dev/tools/scripts/tests/rccl-sweep
+cd <path-to-rccl-sweep>
 
 # Create and activate conda environment
 conda env create -f environment.yml
@@ -46,12 +46,12 @@ conda activate rccl-sweep
 
 2. **Set MY_PATH** environment variable pointing to directory with RCCL libs and rccl-tests executables:
    ```bash
-   export MY_PATH=/home/amir/rccl-bins/develop
+   export MY_PATH=/path/to/rccl-bins
    ```
    Or configure directly in `sweep_config.yaml`:
    ```yaml
    paths:
-     rccl_path: "/home/amir/rccl-bins/develop"
+     rccl_path: "/path/to/rccl-bins"
    ```
 
 3. **Run a sweep**:
@@ -164,7 +164,7 @@ paths:
 
 **Note**: Set `MY_PATH` before running:
 ```bash
-export MY_PATH=/home/amir/rccl-bins/develop
+export MY_PATH=/path/to/rccl-bins
 ```
 
 ### Test Defaults

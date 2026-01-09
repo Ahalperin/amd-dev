@@ -30,7 +30,7 @@
 
 1. **Setup conda environment**:
    ```bash
-   cd /home/amir/amd-dev/tools/scripts/tests/rccl-sweep
+   cd <path-to-rccl-sweep>
    conda env create -f environment.yml
    conda activate rccl-sweep
    ```

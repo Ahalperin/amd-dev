@@ -128,7 +128,7 @@ def main():
     parser.add_argument(
         "--base-path",
         type=Path,
-        default=Path("/home/amir/amd-dev/tools/scripts/tests/rccl-sweep/sweep_results"),
+        default=Path("./sweep_results"),
         help="Path to sweep_results directory (default: %(default)s)",
     )
     parser.add_argument(
