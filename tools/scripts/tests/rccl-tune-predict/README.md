@@ -12,9 +12,20 @@ At inference time, it searches over the tuning parameter space to find the confi
 
 ## Installation
 
+This tool is designed to work within the `rccl-sweep` conda environment (created by [rccl-sweep](../rccl-sweep/)).
+
 ```bash
+# Activate the rccl-sweep environment
+conda activate rccl-sweep
+
+# Install dependencies via conda (recommended)
+conda install scikit-learn pandas numpy
+
+# Or via pip within the activated environment
 pip install -r requirements.txt
 ```
+
+> **Note:** Using `conda install` is recommended for scikit-learn to ensure proper installation within the conda environment. Using `pip` outside an activated conda environment may install packages to your user site-packages instead.
 
 ## Quick Start
 
