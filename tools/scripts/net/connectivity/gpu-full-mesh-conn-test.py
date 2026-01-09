@@ -10,12 +10,27 @@ import subprocess
 import sys
 import re
 import os
+import signal
 from pathlib import Path
 from typing import Dict, List, Tuple
 import argparse
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+
+# Global flag for graceful shutdown
+_shutdown_requested = False
+
+def _signal_handler(signum, frame):
+    """Handle interrupt signals for graceful shutdown"""
+    global _shutdown_requested
+    _shutdown_requested = True
+    print("\n\nInterrupt received, shutting down gracefully...", file=sys.stderr)
+    print("(Press Ctrl+C again to force quit)", file=sys.stderr)
+
+# Install signal handlers
+signal.signal(signal.SIGINT, _signal_handler)
+signal.signal(signal.SIGTERM, _signal_handler)
 
 
 class NetworkDiscoveryRunner:
@@ -70,9 +85,36 @@ class NetworkDiscoveryRunner:
             print(f"Error reading servers list: {e}", file=sys.stderr)
             sys.exit(1)
     
+    def _get_local_ips(self) -> set:
+        """Get all local IP addresses of this machine"""
+        local_ips = set()
+        try:
+            # Get IPs from hostname command
+            result = subprocess.run(
+                ["hostname", "-I"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                local_ips.update(result.stdout.strip().split())
+            
+            # Also add localhost variations
+            local_ips.add("127.0.0.1")
+            local_ips.add("localhost")
+        except Exception:
+            pass
+        return local_ips
+    
+    def _is_local_server(self, server_ip: str) -> bool:
+        """Check if the given IP is the local machine"""
+        if not hasattr(self, '_local_ips_cache'):
+            self._local_ips_cache = self._get_local_ips()
+        return server_ip in self._local_ips_cache
+    
     def execute_remote_discovery(self, server_ip: str) -> str:
         """
-        Execute net-discovery.sh on a remote server via SSH
+        Execute net-discovery.sh on a remote server via SSH (or locally if it's this machine)
         
         Args:
             server_ip: IP address of the remote server
@@ -81,7 +123,23 @@ class NetworkDiscoveryRunner:
             Output of the net-discovery script
         """
         try:
-            # First, copy the script to the remote server
+            # Check if this is the local machine
+            if self._is_local_server(server_ip):
+                print(f"Executing net-discovery.sh locally on {server_ip}...", file=sys.stderr)
+                result = subprocess.run(
+                    ["sudo", "bash", self.net_discovery_script],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                
+                if result.returncode != 0:
+                    print(f"Warning: Failed to execute script locally: {result.stderr}", file=sys.stderr)
+                    return ""
+                
+                return result.stdout
+            
+            # Remote server - copy and execute via SSH
             remote_script_path = "/tmp/net-discovery.sh"
             
             print(f"Copying net-discovery.sh to {self.ssh_user}@{server_ip}...", file=sys.stderr)
@@ -90,6 +148,8 @@ class NetworkDiscoveryRunner:
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "LogLevel=ERROR",
+                "-o", "ConnectTimeout=10",
+                "-o", "BatchMode=yes",
                 self.net_discovery_script,
                 f"{self.ssh_user}@{server_ip}:{remote_script_path}"
             ]
@@ -112,6 +172,8 @@ class NetworkDiscoveryRunner:
                 "-o", "StrictHostKeyChecking=no",
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "LogLevel=ERROR",
+                "-o", "ConnectTimeout=10",
+                "-o", "BatchMode=yes",
                 f"{self.ssh_user}@{server_ip}",
                 f"sudo bash {remote_script_path}"
             ]
@@ -325,6 +387,22 @@ class NetworkDiscoveryRunner:
             Tuple of (success: bool, latency: str) e.g., (True, "0.234ms") or (False, ">1000ms")
         """
         try:
+            # Check if this is the local machine
+            if self._is_local_server(server_ip):
+                # Execute ping locally
+                result = subprocess.run(
+                    ["ping", "-I", local_ip, "-c", "1", "-W", "1", remote_ip],
+                    capture_output=True,
+                    text=True,
+                    timeout=15
+                )
+                
+                if result.returncode == 0:
+                    latency = self._parse_ping_latency(result.stdout)
+                    return (True, latency)
+                else:
+                    return (False, ">1000ms")
+            
             # Execute ping via SSH with interface IP binding
             # Using -I with IP address is more reliable than interface name
             # Use -c 1 for 1 ping, -W 1 for 1 second timeout
@@ -334,6 +412,7 @@ class NetworkDiscoveryRunner:
                 "-o", "UserKnownHostsFile=/dev/null",
                 "-o", "LogLevel=ERROR",
                 "-o", "ConnectTimeout=5",
+                "-o", "BatchMode=yes",
                 f"{self.ssh_user}@{server_ip}",
                 f"ping -I {local_ip} -c 1 -W 1 {remote_ip} 2>&1"
             ]
@@ -570,8 +649,12 @@ class NetworkDiscoveryRunner:
         if not target_ips:
             return {}
         
+        # Check for shutdown before starting
+        if _shutdown_requested:
+            return {f"{server_ip}:{local_interface}:{ip}": ("skip", "N/A") for ip in target_ips}
+        
         try:
-            # Build ONE compound SSH command with ALL pings from this interface
+            # Build ONE compound command with ALL pings from this interface
             ping_commands = []
             for target_ip in target_ips:
                 ping_commands.append(
@@ -584,33 +667,58 @@ class NetworkDiscoveryRunner:
             # Join all commands with semicolons
             batch_script = "; ".join(ping_commands)
             
-            # Execute via ONE SSH connection
-            ssh_cmd = [
-                "ssh",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
-                "-o", "LogLevel=ERROR",
-                "-o", "ConnectTimeout=5",
-                f"{self.ssh_user}@{server_ip}",
-                batch_script
-            ]
-            
             # Calculate timeout: 2 seconds per ping (generous)
             timeout = max(60, len(target_ips) * 2)
             
-            result = subprocess.run(
-                ssh_cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
+            # Check if this is the local machine
+            if self._is_local_server(server_ip):
+                # Execute locally with bash
+                process = subprocess.Popen(
+                    ["bash", "-c", batch_script],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            else:
+                # Execute via SSH connection using Popen for better interrupt handling
+                ssh_cmd = [
+                    "ssh",
+                    "-o", "StrictHostKeyChecking=no",
+                    "-o", "UserKnownHostsFile=/dev/null",
+                    "-o", "LogLevel=ERROR",
+                    "-o", "ConnectTimeout=5",
+                    "-o", "ServerAliveInterval=5",
+                    "-o", "ServerAliveCountMax=2",
+                    "-o", "BatchMode=yes",
+                    f"{self.ssh_user}@{server_ip}",
+                    batch_script
+                ]
+                
+                process = subprocess.Popen(
+                    ssh_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            
+            try:
+                stdout, stderr = process.communicate(timeout=timeout)
+                result_stdout = stdout
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                raise
+            
+            # Check for shutdown after SSH
+            if _shutdown_requested:
+                return {f"{server_ip}:{local_interface}:{ip}": ("skip", "N/A") for ip in target_ips}
             
             # Parse the output to extract results for each target
             interface_results = {}
             current_target = None
             current_output = []
             
-            for line in result.stdout.split('\n'):
+            for line in result_stdout.split('\n'):
                 if '=== PING_START:' in line:
                     match = re.search(r'PING_START:([\d.]+)', line)
                     if match:
@@ -830,7 +938,8 @@ class NetworkDiscoveryRunner:
         ping_results = {}
         
         # Use ThreadPoolExecutor to parallelize by server
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        try:
             # Submit a task for each server
             future_to_server = {
                 executor.submit(
@@ -844,14 +953,25 @@ class NetworkDiscoveryRunner:
                 for server_ip, interfaces in server_interfaces.items()
             }
             
-            # Collect results as they complete
+            # Collect results as they complete, with shutdown check
             for future in as_completed(future_to_server):
+                if _shutdown_requested:
+                    print("\nShutdown requested, cancelling remaining tasks...", file=sys.stderr)
+                    # Cancel pending futures
+                    for f in future_to_server:
+                        f.cancel()
+                    break
+                
                 server_ip = future_to_server[future]
                 try:
-                    server_results = future.result()
+                    server_results = future.result(timeout=1)
                     ping_results.update(server_results)
                 except Exception as e:
-                    print(f"Error testing server {server_ip}: {e}", file=sys.stderr)
+                    if not _shutdown_requested:
+                        print(f"Error testing server {server_ip}: {e}", file=sys.stderr)
+        finally:
+            # Shutdown executor - don't wait for threads if shutdown requested
+            executor.shutdown(wait=not _shutdown_requested, cancel_futures=True)
         
         # Calculate statistics
         total_tests = len(ping_results)
