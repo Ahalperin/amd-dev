@@ -49,9 +49,9 @@ rccl-tune-predict/
 ├── requirements.txt      # Python dependencies
 ├── train.py              # CLI: Train model from sweep data
 ├── predict.py            # CLI: Predict optimal config
-├── rccl_tune_predict/    # Python package
+├── core/                 # Python package
 │   ├── __init__.py
-│   ├── model.py          # BusbwPredictor class
+│   ├── busbw_predictor.py # BusbwPredictor class
 │   ├── search.py         # Config search/optimization
 │   └── utils.py          # Data loading, feature engineering
 └── models/               # Saved trained models
@@ -60,7 +60,7 @@ rccl-tune-predict/
 
 ## Core Components
 
-### 1. Model Class (`rccl_tune_predict/model.py`)
+### 1. Model Class (`core/busbw_predictor.py`)
 
 **BusbwPredictor** class:
 - Wraps `sklearn.ensemble.GradientBoostingRegressor`
@@ -81,7 +81,7 @@ rccl-tune-predict/
   - `save(path)` - Serialize model to pickle
   - `load(path)` - Load model from pickle
 
-### 2. Config Search (`rccl_tune_predict/search.py`)
+### 2. Config Search (`core/search.py`)
 
 **find_optimal_config()** function:
 - Input: (collective, num_nodes, num_gpus, size_bytes), trained model
