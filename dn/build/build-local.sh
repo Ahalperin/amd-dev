@@ -63,6 +63,6 @@ fi
 
 # build and install rccl-network plugin (depends on AINIC driver that is installed on bare-metal)
 if [[ -z "$BUILD_TARGET" ]] || [[ "$BUILD_TARGET" == "amd-anp" ]]; then
-    cd ${DN_DIR}/amd-anp && sudo rm -rf build && sudo make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}
+    cd ${DN_DIR}/amd-anp && sudo rm -rf build && make RCCL_HOME=${RCCL_HOME} MPI_INCLUDE=${OMPI_HOME}/include/ MPI_LIB_PATH=${OMPI_HOME}/lib ROCM_PATH=${ROCM_HOME}
 fi
 
